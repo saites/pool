@@ -1,0 +1,60 @@
+{% extends "layout.html" %}
+
+{% block head %}
+  {{ super() }}
+  <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+  <script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+  <script type="text/javascript">
+    google.charts.load('current', {packages: ['line']});
+    google.charts.setOnLoadCallback(getData);
+
+    function getData() {
+      var jsonData = $.ajax({
+          url: "readings/datatable",
+          dataType: "json",
+          success: drawCharts
+          })
+    }
+
+    function drawCharts(jsonData) {
+      var table = new google.visualization.DataTable(jsonData);
+      drawLineChart(table, 'pHChart', 'pH')
+      drawLineChart(table, 'poolTempChart', 'pool_temp')
+    }
+
+    function drawLineChart(table, container, column) {
+      var chart = new google.visualization.ChartWrapper({
+        chartType: 'Line',
+        containerId: container, 
+        dataTable: table,
+
+        options: {
+          curveType: 'function',
+          height: 300,
+          width: 700,
+          hAxis: {
+            title: 'asdf',
+            format: 'dd HH:mm:ss'
+          }
+        }
+      })
+
+      chart.setView({columns: ['when', column]})
+      google.visualization.events.addListener(chart, 'error', 
+        function(err) {
+          console.log(err)
+        });
+      chart.draw()
+    }
+
+  </script>
+{% endblock %}
+
+{% block content %}
+  <h1>Current Conditions</h1>
+  <p class="important">
+
+  <div id="poolTempChart"> </div>
+  <div id="pHChart"> </div>
+
+{% endblock %}
