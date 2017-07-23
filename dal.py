@@ -17,12 +17,23 @@ def _construct_queries(name_types, table):
         table, ', '.join(definitions))
     insert = 'INSERT INTO {}({}) values({})'.format(
         table, ', '.join(names), ', '.join(['?'] * len(names)))
-    select = 'SELECT * FROM {} WHERE ts >= ? AND ts <= ? ORDER BY ts'.format(
-        table)
-    delete = 'DELETE * FROM {} WHERE ts >= ? AND ts <= ?'.format(
+    delete = 'DELETE FROM {} WHERE ts >= ? AND ts <= ?'.format(
         table)
     ids = {n: i for i, n in enumerate(names)}
-    return {'create': create, 'insert': insert, 'select': select, 'delete': delete, 'indexes': ids}
+    return {'create': create, 'insert': insert, 'delete': delete, 'indexes': ids}
+
+
+def select(table, columns='*', time_tuple=None):
+    '''Performs a select against a particular table
+    By default, selects all columns with no selection criteria.
+    If provide, selects a subset of columns=['c1', 'c2'], etc.
+    If provided, performs WHERE & ORDER BY on ts using (after, before) tuple.
+    '''
+    query = 'SELECT {} FROM {}'.format(', '.join(columns), table)
+    if time_tuple is not None:
+        query += ' WHERE ts >= ? AND ts <= ? ORDER BY ts'
+        return CONN.execute(query, time_tuple)
+    return CONN.execute(query)
 
 
 EVENT_TYPES = [
@@ -33,11 +44,6 @@ EVENT_TYPES = [
     'BACKWASH',  # backwash filter
     'CLEAN-FILTER',  # clean filter
     'WEATHER',  # what type of weather event
-]
-EVENTS_COLS = [
-    ('ts', 'INTEGER PRIMARY KEY'),  # event timestamp (ms since epcoh)
-    ('what', 'TEXT'),  # event type
-    ('comment', 'TEXT'),  # what actually happened
 ]
 
 READINGS_COLS = [
@@ -50,6 +56,8 @@ READINGS_COLS = [
     ('pool_temp', 'REAL'),  # temperature (*C)
     ('air_temp', 'REAL'),  # temperature (*C)
     ('cpu_temp', 'REAL'),  # temperature (*C)
+    ('event', 'TEXT'),  # event that occurred at time of reading
+    ('comment', 'TEXT'),  # event comments
 ]
 
 SETTINGS_COLS = [
@@ -70,10 +78,9 @@ SETTINGS_TYPES = {
     'database_version': (int, 1),
 }
 
-TABLES = ['settings', 'events', 'readings']
+TABLES = ['settings', 'readings']
 TABLES_TO_COLS = {
     'settings': SETTINGS_COLS,
-    'events': EVENTS_COLS,
     'readings': READINGS_COLS,
 }
 QUERIES = {table_name: _construct_queries(TABLES_TO_COLS[table_name], table_name)
@@ -116,12 +123,13 @@ def update_setting(key, value, delay_commit=False):
         CONN.commit()
 
 
+_settings = {k: SETTINGS_TYPES[k][0](v)
+             for _, k, v in CONN.execute('SELECT * FROM settings')}
+
+
 def get_settings():
     '''returns all the current settings'''
-    return {k: SETTINGS_TYPES[k][0](v) for _, k, v in CONN.execute('SELECT * FROM settings')}
-
-
-_settings = get_settings()
+    return _settings
 
 
 def do_insert(table_name, values, with_ts=False):
@@ -129,13 +137,14 @@ def do_insert(table_name, values, with_ts=False):
     if with_ts and 'ts' not in values:
         now = int(time.time() * 1000)
         values['ts'] = now
+    else:
+        now = values['ts']
     cols = TABLES_TO_COLS[table_name]
     to_insert = tuple(
-        values[name] if name in values else 'null' for name, _ in cols)
+        values[name] if name in values else None for name, _ in cols)
     CONN.execute(QUERIES[table_name]['insert'], to_insert)
     CONN.commit()
-    if with_ts:
-        return now
+    return now
 
 
 def do_get(table_name, after, before):
@@ -158,27 +167,16 @@ def add_reading(reading):
 
 def get_readings(after, before):
     '''Returns readings between after and before, inclusive.'''
-    return do_get('readings', after, before)
+    return select('readings', time_tuple=(after, before)).fetchall()
+
+
+def get_events(after, before):
+    return select('readings', columns=['ts', 'event', 'column'], time_tuple=(after, before)).fetchall()
 
 
 def delete_readings(after, before):
     '''Deletes readings between after and before, inclusive.'''
     do_delete('readings', after, before)
-
-
-def add_event(event):
-    '''Add a new event'''
-    return do_insert('events', event, True)
-
-
-def get_events(after, before):
-    '''Returns events between after and before, inclusive.'''
-    return do_get('events', after, before)
-
-
-def delete_event(after, before):
-    '''Deletes events between after and before, inclusive.'''
-    do_delete('events', after, before)
 
 
 def update_settings(settings):

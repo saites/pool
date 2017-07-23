@@ -1,60 +1,105 @@
-{% extends "layout.html" %}
+{% extends "layout.html" %} 
+{% block head %} 
+{{ super() }}
+<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+<script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+<script type="text/javascript">
+  google.charts.load('current', { packages: ['line', 'charteditor'] });
+  google.charts.setOnLoadCallback(getData);
 
-{% block head %}
-  {{ super() }}
-  <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
-  <script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
-  <script type="text/javascript">
-    google.charts.load('current', {packages: ['line']});
-    google.charts.setOnLoadCallback(getData);
+  function getData() {
+    var jsonData = $.ajax({
+      url: "readings/datatable",
+      dataType: "json",
+      success: drawCharts
+    })
+  }
 
-    function getData() {
-      var jsonData = $.ajax({
-          url: "readings/datatable",
-          dataType: "json",
-          success: drawCharts
-          })
+  function drawCharts(jsonData) {
+    console.log("got data: " + (jsonData !== undefined))
+    var table = new google.visualization.DataTable(jsonData);
+    drawLineChart(table, 'pHChart', 'pH', 'pH')
+    drawLineChart(table, 'poolTempChart', 'pool_temp', 'Pool Temperature')
+    //drawLineChart(table, 'events', 'event', 'Events')
+  }
+
+  function drawLineChart(table, container, column, title) {
+    var options = {
+      curveType: 'function',
+      height: 400,
+      width: 650,
+      title: title,
+      hAxis: {
+        format: 'MMM-dd HH:mm:ss'
+      },
+      legend: {
+        position: 'none'
+      },
     }
 
-    function drawCharts(jsonData) {
-      var table = new google.visualization.DataTable(jsonData);
-      drawLineChart(table, 'pHChart', 'pH')
-      drawLineChart(table, 'poolTempChart', 'pool_temp')
-    }
+    var chart = new google.visualization.ChartWrapper({
+      chartType: 'LineChart',
+      containerId: container,
+      dataTable: table,
+      //options: google.charts.Line.convertOptions(options)
+      options: options
+    })
 
-    function drawLineChart(table, container, column) {
-      var chart = new google.visualization.ChartWrapper({
-        chartType: 'Line',
-        containerId: container, 
-        dataTable: table,
+    chart.setView({ columns: ['when', column, 'event'] })
+    google.visualization.events.addListener(chart, 'error',
+      function (err) {
+        console.log(err)
+      });
+    chart.draw()
 
-        options: {
-          curveType: 'function',
-          height: 300,
-          width: 700,
-          hAxis: {
-            title: 'asdf',
-            format: 'dd HH:mm:ss'
-          }
-        }
-      })
+/*
+    var chart = new google.visualization.LineChart(
+      document.getElementById(container))
+    chart.draw(table, options)
+    */
+  }
 
-      chart.setView({columns: ['when', column]})
-      google.visualization.events.addListener(chart, 'error', 
-        function(err) {
-          console.log(err)
-        });
-      chart.draw()
-    }
+</script>
 
-  </script>
-{% endblock %}
-
+{% endblock %} 
 {% block content %}
+<div class="header">
   <h1>Current Conditions</h1>
-  <p class="important">
+</div>
 
-  <div id="poolTempChart"> </div>
-  <div id="pHChart"> </div>
+<div class="content">
+  <table class="pure-table pure-table-horizontal">
+      <tbody>
+          <tr>
+              <td>Free Chlorine</td>
+              <td>6.5</td>
+              <td>ppm</td>
+          </tr>
+
+          <tr>
+              <td>Total Chlorine</td>
+              <td>0</td>
+              <td>ppm</td>
+          </tr>
+
+          <tr>
+              <td>pH</td>
+              <td>7.5</td>
+              <td></td>
+          </tr>
+      </tbody>
+  </table>
+
+  <div class="chart">
+    <div id="pHChart"> </div>
+  </div>
+  <div class="chart">
+    <div id="poolTempChart"> </div>
+  </div>
+  <div class="chart">
+    <div id="events"> </div>
+  </div>
+</div>
+
 
 {% endblock %}

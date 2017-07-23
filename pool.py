@@ -4,14 +4,17 @@ Pool module for defining Flask routes to store and update info
 
 import functools
 import time
+
 from flask import Flask, request, jsonify, abort, render_template
 import flask
 
 import sensors
 import dal
+import schedule
 
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
+schedule.set_reading_interval(dal.get_settings()['reading_interval'])
 
 
 def return_json(func):
@@ -23,26 +26,54 @@ def return_json(func):
     return inner
 
 
-def extract_float(name, default_val):
+def extract_int(name, default=None):
+    '''Extracts a float from the query parameters'''
+    try:
+        return int(request.args[name])
+    except KeyError:
+        return default
+    except ValueError:
+        abort(400, name + ' should be an int')
+
+
+def extract_float(name, default=None):
     '''Extracts a float from the query parameters'''
     try:
         return float(request.args[name])
     except KeyError:
-        return default_val
+        return default
     except ValueError:
         abort(400, name + ' should be a float')
+
+
+def extract_str(name, default=None):
+    '''Extracts a string from the query parameters'''
+    try:
+        return request.args[name]
+    except KeyError:
+        return default
 
 
 @app.route('/')
 def get_index():
     '''Creates and returns the index page'''
-    print('   loading index')
-    '''
-    last_week = datetime.datetime.today() - datetime.timedelta(days=7)
-    flask.g.readings = dal.get_readings(
-        dal.as_millis(last_week.timestamp()), dal.get_millis())
-    '''
     return render_template('dashboard.html')
+
+
+@app.route('/readings/csv')
+def get_readings_csv():
+    '''Returns requested readings as a csv'''
+    after = extract_float('after', 0)
+    before = extract_float('before', int(1000 * time.time()))
+    readings = dal.get_readings(after, before)
+
+    indexes = dal.QUERIES['readings']['indexes']
+
+    def generate():
+        yield ','.join(indexes) + '\n'
+        for r in readings:
+            yield ','.join([str(_) for _ in r]) + '\n'
+    return flask.Response(generate(), mimetype='text/csv')
 
 
 @app.route('/readings/datatable')
@@ -53,37 +84,36 @@ def get_readings_datatable():
     after = extract_float('after', 0)
     before = extract_float('before', int(1000 * time.time()))
     readings = dal.get_readings(after, before)
+
     indexes = dal.QUERIES['readings']['indexes']
-    print(indexes)
     when_idx = indexes['ts']
     pH_idx = indexes['ph']
     pool_temp_idx = indexes['pool_temp']
-    return {
+    event_idx = indexes['event']
+
+    chart_data = {
         'cols': [
             {'id': 'when', 'label': 'Time', 'type': 'datetime'},
+            {'id': 'event', 'type': 'string', 'role': 'annotation'},
             {'id': 'pH', 'label': 'pH', 'type': 'number'},
             {'id': 'pool_temp', 'label': 'Pool Temperature', 'type': 'number'}
         ],
         'rows': [
             {'c': [
-                {'v': millis_to_date(r[when_idx])},
+                {'v': 'Date({})'.format(r[when_idx])},
+                {'v': r[event_idx]},
                 {'v': r[pH_idx]},
-                {'v': r[pool_temp_idx]},
+                {'v': r[pool_temp_idx]}
             ]} for r in readings
         ]
     }
-
-
-def millis_to_date(millis):
-    '''Returns a Google Visualization compatible
-    string for a given millisecond representation'''
-    return 'Date({})'.format(millis)
+    return chart_data
 
 
 @app.route('/readings', methods=['GET', 'POST', 'DELETE'])
 @return_json
 def handle_reading():
-    '''Get or create a reading'''
+    '''Get or record a reading'''
     if request.method == 'DELETE':
         after = extract_float('after', None)
         before = extract_float('before', None)
@@ -103,7 +133,7 @@ def handle_reading():
 @app.route('/readings/current')
 @return_json
 def take_reading():
-    '''Takes a reading immediately, stores it, and returns its value'''
+    '''Takes a reading immediately and returns its value'''
     water_temp = sensors.get_water_temperature()
     if dal.should_compensate(water_temp):
         dal.update_setting('compensation_delta', water_temp)
@@ -116,21 +146,18 @@ def take_reading():
         'cpu_temp': sensors.get_internal_temperature()
     }
 
-    reading['ts'] = dal.add_reading(reading)
+    if bool(request.args['store']):
+        dal.add_reading(reading)
     return reading
 
 
-@app.route('/events', methods=['GET', 'POST'])
+@app.route('/events')
 @return_json
 def handle_event():
-    '''Get or create events'''
-    if request.method == 'POST':
-        now = dal.add_event(request.get_json())
-        return {'ts': now}
-    else:
-        after = extract_float('after', 0)
-        before = extract_float('before', int(1000 * time.time()))
-        return dal.get_events(after, before)
+    '''Get events'''
+    after = extract_float('after', 0)
+    before = extract_float('before', int(1000 * time.time()))
+    return dal.get_events(after, before)
 
 
 @app.route('/settings', methods=['GET', 'PUT'])
@@ -139,5 +166,11 @@ def handle_settings():
     '''Get or update settings'''
     # should be {setting: value}
     if request.method == 'PUT':
-        dal.update_settings(request.get_json)
-    return dal.get_settings()
+        new_settings = request.get_json
+        dal.update_settings()
+        updated_settings = dal.get_settings()
+        if 'reading_interval' in updated_settings:
+            schedule.set_reading_interval(updated_settings['reading_interval'])
+        return updated_settings
+    else:
+        return dal.get_settings()

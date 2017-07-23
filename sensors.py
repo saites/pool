@@ -4,12 +4,17 @@ Communicates with the sensors to obtain readings
 import random
 
 
+pH = 7.0
+
+
 def get_pH():
     '''Returns current pH value.
     note that value is adjusted by sensor probe based on temperature.
     To update this value, use set_pH_temp_compensation.
     '''
-    return random.random() * .5 + 7
+    global pH
+    pH += .1
+    return pH + (random.random() * .01)
 
 
 def set_pH_temp_compensation(temperature):
