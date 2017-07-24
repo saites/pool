@@ -11,8 +11,8 @@ DB_VERSION = 1
 def _construct_queries(name_types, table):
     '''Create and return the CREATE, INSERT, SELECT, and DELETE queries
     as well as a dictionary of names to columns'''
-    definitions = ['{} {}'.format(name, typ) for name, typ in name_types]
-    names = [name for name, _ in name_types]
+    definitions = ['{} {}'.format(nt[0], nt[1]) for nt in name_types]
+    names = [nt[0] for nt in name_types]
     create = 'CREATE TABLE IF NOT EXISTS {} ({})'.format(
         table, ', '.join(definitions))
     insert = 'INSERT INTO {}({}) values({})'.format(
@@ -47,26 +47,26 @@ EVENT_TYPES = [
 ]
 
 READINGS_COLS = [
-    ('ts', 'INTEGER PRIMARY KEY'),  # reading timestamp (ms since epoch)
-    ('fc', 'REAL'),  # free chlorine (ppm)
-    ('tc', 'REAL'),  # total chlorine (ppm)
-    ('ph', 'REAL'),  # pH (unitless)
-    ('ta', 'INTEGER'),  # total alkilinity (ppm)
-    ('ca', 'INTEGER'),  # calcium hardness (ppm)
-    ('pool_temp', 'REAL'),  # temperature (*C)
-    ('air_temp', 'REAL'),  # temperature (*C)
-    ('cpu_temp', 'REAL'),  # temperature (*C)
-    ('event', 'TEXT'),  # event that occurred at time of reading
-    ('comment', 'TEXT'),  # event comments
+    ('ts', 'INTEGER PRIMARY KEY', 'timestamp', 'ms since epoch'),
+    ('fc', 'REAL', 'Free Cl', 'ppm'),
+    ('tc', 'REAL', 'Total Cl', 'ppm'),
+    ('ph', 'REAL', 'pH', ''),
+    ('ta', 'INTEGER', 'Total Alkilinity', 'ppm'),
+    ('ca', 'INTEGER', 'Calcium Hardness', 'ppm'),
+    ('pool_temp', 'REAL', 'Pool Temperature', '*C'),
+    ('air_temp', 'REAL', 'Air Temperature', '*C'),
+    ('cpu_temp', 'REAL', 'CPU Temperature', '*C'),
+    ('event', 'TEXT', 'Event', ''),
+    ('comment', 'TEXT', 'Comments', ''),
 ]
+READING_INFO = {r[0]: (r[2], r[3]) for r in READINGS_COLS}
 
 SETTINGS_COLS = [
-    ('id', 'INTEGER PRIMARY KEY'),
-    ('name', 'TEXT'),
+    ('name', 'TEXT PRIMARY KEY'),
     ('value', 'TEXT'),
 ]
 SETTINGS_TYPES = {
-    # when the pi was turned on last (epoch)
+    # when the pi was turned on last (s since epoch)
     'start_up_time': (int, 0),
     # how often to take a new reading (s)
     'reading_interval': (int, 60),
@@ -92,16 +92,18 @@ def setup_database():
     needs_settings = False
     try:
         dbv = int(CONN.execute(
-            'SELECT * FROM settings WHERE what = database_version').fetchone())
+            'SELECT value FROM settings WHERE name = "database_version"').fetchone()[0])
         if dbv != DB_VERSION:
             raise Exception('DB needs schema migration')
-    except sqlite3.DatabaseError:
+    except sqlite3.DatabaseError as e:
+        print('got db error while loading settings: ', e)
         needs_settings = True
 
     for table_name in TABLES:
         CONN.execute(QUERIES[table_name]['create'])
 
     if needs_settings:
+        print('initializing settings')
         for name in SETTINGS_TYPES:
             _, initial = SETTINGS_TYPES[name]
             CONN.execute('INSERT INTO settings(name, value) values(?, ?)',
@@ -112,24 +114,8 @@ def setup_database():
 setup_database()
 
 
-def update_setting(key, value, delay_commit=False):
-    '''updates the current settings'''
-    # verify the key exists and the value is the right type while updating the internal settings
-    _settings[key] = SETTINGS_TYPES[key][0](value)
-    print(key, value)
-    CONN.execute(
-        'UPDATE settings SET value = ? WHERE name = ?', (key, value))
-    if not delay_commit:
-        CONN.commit()
-
-
 _settings = {k: SETTINGS_TYPES[k][0](v)
-             for _, k, v in CONN.execute('SELECT * FROM settings')}
-
-
-def get_settings():
-    '''returns all the current settings'''
-    return _settings
+             for k, v in CONN.execute('SELECT * FROM settings')}
 
 
 def do_insert(table_name, values, with_ts=False):
@@ -170,6 +156,15 @@ def get_readings(after, before):
     return select('readings', time_tuple=(after, before)).fetchall()
 
 
+def get_most_recent(reading_type):
+    '''Returns the most recent reading'''
+    if reading_type not in QUERIES['readings']['indexes']:
+        raise Exception('Unknown reading type ' + str(reading_type))
+
+    return CONN.execute('SELECT {}, MAX(ts) FROM readings WHERE {} is not NULL'
+                        .format(reading_type, reading_type)).fetchone()
+
+
 def get_events(after, before):
     return select('readings', columns=['ts', 'event', 'column'], time_tuple=(after, before)).fetchall()
 
@@ -179,14 +174,33 @@ def delete_readings(after, before):
     do_delete('readings', after, before)
 
 
+def get_settings():
+    '''returns all the current settings'''
+    return _settings
+
+
+def update_setting(key, value, delay_commit=False):
+    '''updates the current settings'''
+    # verify the key exists and the value is the right type while updating the internal settings
+    if key == 'database_version':
+        raise Exception('Database version is read only')
+    _settings[key] = SETTINGS_TYPES[key][0](value)
+    CONN.execute(
+        'UPDATE settings SET value = ? WHERE name = ?', (_settings[key], key))
+    if not delay_commit:
+        CONN.commit()
+
+
 def update_settings(settings):
     '''update a group of settings as {key: value, key:value}'''
     try:
-        for key, value in settings():
-            update_setting(key, value)
+        for key in settings:
+            update_setting(key, settings[key], delay_commit=True)
         CONN.commit()
-    except sqlite3.DatabaseError:
+    except sqlite3.DatabaseError as e:
+        print('error while updating settings: ', e)
         CONN.rollback()
+        raise(e)
 
 
 def should_compensate(water_temp):

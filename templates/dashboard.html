@@ -68,36 +68,31 @@
 </div>
 
 <div class="content">
-  <table class="pure-table pure-table-horizontal">
-      <tbody>
-          <tr>
-              <td>Free Chlorine</td>
-              <td>6.5</td>
-              <td>ppm</td>
-          </tr>
-
-          <tr>
-              <td>Total Chlorine</td>
-              <td>0</td>
-              <td>ppm</td>
-          </tr>
-
-          <tr>
-              <td>pH</td>
-              <td>7.5</td>
-              <td></td>
-          </tr>
-      </tbody>
-  </table>
+  <p>
+  <div class="pure-g">
+    <div class="pure-u-1-5"></div>
+    <div class="pure-u-3-5">
+      <h2>Most Recent Records</h2>
+      <table class="pure-table pure-table-horizontal">
+        <tbody>
+          {% for category in categories %}
+            <tr>
+              <td>{{category.name}}</td>
+              <td>{{category.value}}</td>
+              <td>{{category.unit}}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+      </table>
+    </div>
+    <div class="pure-u-3-5"></div>
+  </div>
 
   <div class="chart">
     <div id="pHChart"> </div>
   </div>
   <div class="chart">
     <div id="poolTempChart"> </div>
-  </div>
-  <div class="chart">
-    <div id="events"> </div>
   </div>
 </div>
 

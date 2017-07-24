@@ -15,6 +15,7 @@ import schedule
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 schedule.set_reading_interval(dal.get_settings()['reading_interval'])
+dal.update_setting('start_up_time', time.time())
 
 
 def return_json(func):
@@ -57,7 +58,26 @@ def extract_str(name, default=None):
 @app.route('/')
 def get_index():
     '''Creates and returns the index page'''
-    return render_template('dashboard.html')
+    indexes = dal.QUERIES['readings']['indexes']
+
+    to_return = [
+        'fc', 'tc', 'ph', 'ta', 'ca'
+    ]
+
+    categories = []
+    for name in to_return:
+        display, units = dal.READING_INFO[name]
+        value, when = dal.get_most_recent(name)
+        print(value, when)
+        categories.append(
+            {
+                'name': display,
+                'value': str(value) if value is not None else '-',
+                'unit': units,
+                'when': when if when is not None else '-'
+            }
+        )
+    return render_template('dashboard.html', categories=categories)
 
 
 @app.route('/readings/csv')
@@ -146,9 +166,14 @@ def take_reading():
         'cpu_temp': sensors.get_internal_temperature()
     }
 
-    if bool(request.args['store']):
+    if 'store' in request.args and str_to_bool(request.args['store']):
         dal.add_reading(reading)
+
     return reading
+
+
+def str_to_bool(string):
+    return string.lower() in ['t', 'true', '1', 'y']
 
 
 @app.route('/events')
@@ -166,8 +191,8 @@ def handle_settings():
     '''Get or update settings'''
     # should be {setting: value}
     if request.method == 'PUT':
-        new_settings = request.get_json
-        dal.update_settings()
+        new_settings = request.get_json()
+        dal.update_settings(new_settings)
         updated_settings = dal.get_settings()
         if 'reading_interval' in updated_settings:
             schedule.set_reading_interval(updated_settings['reading_interval'])
