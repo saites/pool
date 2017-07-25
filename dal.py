@@ -53,6 +53,7 @@ READINGS_COLS = [
     ('ph', 'REAL', 'pH', ''),
     ('ta', 'INTEGER', 'Total Alkilinity', 'ppm'),
     ('ca', 'INTEGER', 'Calcium Hardness', 'ppm'),
+    ('cya', 'INTEGER', 'CYA', 'ppm'),
     ('pool_temp', 'REAL', 'Pool Temperature', '*C'),
     ('air_temp', 'REAL', 'Air Temperature', '*C'),
     ('cpu_temp', 'REAL', 'CPU Temperature', '*C'),

@@ -1,0 +1,12 @@
+{% macro render_field(field, units) %}
+<div class="pure-control-group">
+  {{ field.label }}
+  {{ field(**kwargs) }}
+    <span class="pure-form-message-inline">{{ units }}</span>
+  {% if field.errors %}
+    {% for error in field.errors %}
+    <span class="pure-form-message-inline">{{ error }}</span>
+    {% endfor %}
+  {% endif %}
+</div>
+{% endmacro %}

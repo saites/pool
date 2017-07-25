@@ -1,0 +1,41 @@
+{% extends "layout.html" %} {% block content %}
+{% from "_form_helpers.html" import render_field %}
+
+{% block head %} 
+{{ super() }}
+<link rel="stylesheet" href="https://unpkg.com/flatpickr/dist/flatpickr.min.css">
+<script src="https://unpkg.com/flatpickr"></script>
+<script type="text/javascript">
+    window.onload = function() {
+        flatpickr("#when", {
+            enableTime: true,
+        });
+    }
+</script>
+{% endblock %} 
+
+<div class="header">
+    <h1>Add Reading</h1>
+</div>
+
+<div class="content">
+    <form class="pure-form pure-form-aligned" method=post>
+        <fieldset>
+            {{ render_field(form.fc, "ppm") }}
+            {{ render_field(form.tc, "ppm") }}
+            {{ render_field(form.ph) }}
+            {{ render_field(form.ta, "ppm") }}
+            {{ render_field(form.ca, "ppm") }}
+            {{ render_field(form.cya, "ppm") }}
+            {{ render_field(form.event) }}
+            {{ render_field(form.comments) }}
+            {{ render_field(form.when) }}
+            {{ form.csrf_token }}
+
+            <button type="submit" class="pure-button pure-button-primary" value="submit">Submit</button>
+            </div>
+        </fieldset>
+    </form>
+</div>
+
+{% endblock %}

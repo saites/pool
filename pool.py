@@ -5,15 +5,19 @@ Pool module for defining Flask routes to store and update info
 import functools
 import time
 
-from flask import Flask, request, jsonify, abort, render_template
+from flask import Flask, request, jsonify, abort, render_template, flash
 import flask
 
+from forms import ManualReadingForm
 import sensors
 import dal
 import schedule
+import secret_key
 
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
+secret_key.set_secret_key(app)
+
 schedule.set_reading_interval(dal.get_settings()['reading_interval'])
 dal.update_setting('start_up_time', time.time())
 
@@ -61,7 +65,7 @@ def get_index():
     indexes = dal.QUERIES['readings']['indexes']
 
     to_return = [
-        'fc', 'tc', 'ph', 'ta', 'ca'
+        'fc', 'tc', 'ph', 'ta', 'ca', 'cya'
     ]
 
     categories = []
@@ -78,6 +82,17 @@ def get_index():
             }
         )
     return render_template('dashboard.html', categories=categories)
+
+
+@app.route('/readings/manual', methods=['GET', 'POST'])
+def get_manual_reading_page():
+    '''Creates and returns the manual readings form'''
+    form = ManualReadingForm(request.form)
+    if request.method == 'POST' and form.validate():
+        print(form.fc.data)
+        print(form.when.data)
+        flash('Reading added')
+    return render_template('add_reading.html', form=form)
 
 
 @app.route('/readings/csv')
