@@ -89,9 +89,20 @@ def get_manual_reading_page():
     '''Creates and returns the manual readings form'''
     form = ManualReadingForm(request.form)
     if request.method == 'POST' and form.validate():
-        print(form.fc.data)
-        print(form.when.data)
+        reading = {
+            'fc': form.fc.data,
+            'tc': form.tc.data,
+            'ph': form.ph.data,
+            'ta': form.ta.data,
+            'ca': form.ca.data,
+            'cya': form.cya.data,
+            'event': form.event.data if form.event.data != '' else None,
+            'comment': form.comment.data if form.comment.data != '' else None,
+            'when': int(time.mktime(form.when.data.timetuple()) * 1000)
+        }
+        dal.add_reading(reading)
         flash('Reading added')
+        return flask.redirect('/readings/manual')
     return render_template('add_reading.html', form=form)
 
 

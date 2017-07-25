@@ -128,7 +128,8 @@ def do_insert(table_name, values, with_ts=False):
         now = values['ts']
     cols = TABLES_TO_COLS[table_name]
     to_insert = tuple(
-        values[name] if name in values else None for name, _ in cols)
+        values[col[0]] if col[0] in values else None for col in cols)
+    print(QUERIES[table_name]['insert'], to_insert)
     CONN.execute(QUERIES[table_name]['insert'], to_insert)
     CONN.commit()
     return now
