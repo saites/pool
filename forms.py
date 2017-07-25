@@ -17,11 +17,6 @@ class ManualReadingForm(Form):
                       [Optional(), NumberRange(min=10, max=300)])
     cya = IntegerField('CYA',
                        [Optional(), NumberRange(min=0, max=1000)])
-        '''
-event = SelectField('Event',
-         [Optional()],
-         choices=[('asdf', "asdf"), ('fdsf', "fda")])
-         '''
     event = TextField('Event',
                       [Optional()])
     comments = TextAreaField('Comments', [Optional()])
