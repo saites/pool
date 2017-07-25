@@ -17,8 +17,8 @@ class ManualReadingForm(Form):
                       [Optional(), NumberRange(min=10, max=300)])
     cya = IntegerField('CYA',
                        [Optional(), NumberRange(min=0, max=1000)])
-    event = TextField('Event',
-                      [Optional()])
+    event = StringField('Event',
+                        [Optional()])
     comments = TextAreaField('Comments', [Optional()])
     when = DateTimeField('When',
                          [DataRequired()],
