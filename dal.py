@@ -1,71 +1,145 @@
-'''
-Handles communication with a database or memory cache
-'''
-import sqlite3
+from flask import Flask
+from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import desc
 import time
 
-CONN = sqlite3.connect('pool.db')
-DB_VERSION = 1
+app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///pool.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+db = SQLAlchemy(app)
+
+DATABASE_VERSION = 1
 
 
-def _construct_queries(name_types, table):
-    '''Create and return the CREATE, INSERT, SELECT, and DELETE queries
-    as well as a dictionary of names to columns'''
-    definitions = ['{} {}'.format(nt[0], nt[1]) for nt in name_types]
-    names = [nt[0] for nt in name_types]
-    create = 'CREATE TABLE IF NOT EXISTS {} ({})'.format(
-        table, ', '.join(definitions))
-    insert = 'INSERT INTO {}({}) values({})'.format(
-        table, ', '.join(names), ', '.join(['?'] * len(names)))
-    delete = 'DELETE FROM {} WHERE ts >= ? AND ts <= ?'.format(
-        table)
-    ids = {n: i for i, n in enumerate(names)}
-    return {'create': create, 'insert': insert, 'delete': delete, 'indexes': ids}
+def as_dict(db_model):
+    '''Returns a db model object as a dict'''
+    return {c.name: getattr(db_model, c.name) for c in db_model.__table__.columns}
 
 
-def select(table, columns='*', time_tuple=None):
-    '''Performs a select against a particular table
-    By default, selects all columns with no selection criteria.
-    If provide, selects a subset of columns=['c1', 'c2'], etc.
-    If provided, performs WHERE & ORDER BY on ts using (after, before) tuple.
+def get_or_default(dict, key, default=None):
+    '''Extracts a key from a dict, or returns a default value'''
+    try:
+        return dict[key]
+    except KeyError:
+        return default
+
+
+class Reading(db.Model):
+    '''Represents a pool reading.
+    ts is when the reading was taken, and is always defined.
+        If ts isn't defined at creation, it is automatically
+        set to the system's current time (in ms since epcoh).
+    All other values are optional, and can be specified as
+        **kwarsg.
     '''
-    query = 'SELECT {} FROM {}'.format(', '.join(columns), table)
-    if time_tuple is not None:
-        query += ' WHERE ts >= ? AND ts <= ? ORDER BY ts'
-        return CONN.execute(query, time_tuple)
-    return CONN.execute(query)
+    ts = db.Column(db.Integer, primary_key=True)
+    fc = db.Column(db.Float)
+    tc = db.Column(db.Float)
+    ph = db.Column(db.Float)
+    ta = db.Column(db.Integer)
+    ca = db.Column(db.Integer)
+    cya = db.Column(db.Integer)
+    pool_temp = db.Column(db.Float)
+    air_temp = db.Column(db.Float)
+    cpu_temp = db.Column(db.Float)
+
+    definitions = [
+        ('ts', 'timestamp', 'ms since epoch'),
+        ('fc', 'Free Cl', 'ppm'),
+        ('tc', 'Total Cl', 'ppm'),
+        ('ph', 'pH', ''),
+        ('ta', 'Total Alkilinity', 'ppm'),
+        ('ca', 'Calcium Hardness', 'ppm'),
+        ('cya', 'CYA', 'ppm'),
+        ('pool_temp', 'Pool Temperature', '*C'),
+        ('cpu_temp', 'CPU Temperature', '*C'),
+        ('air_temp', 'Air Temperature', '*C'),
+    ]
+    info = {d[0]: (d[1], d[2]) for d in definitions}
+
+    def __init__(self, **kwargs):
+        if any([arg not in self.info for arg in kwargs]):
+            raise Exception('kwargs includes unknown arguments')
+        self.ts = get_or_default(kwargs, 'ts', int(time.time() * 1000))
+        self.fc = get_or_default(kwargs, 'fc')
+        self.tc = get_or_default(kwargs, 'tc')
+        self.ph = get_or_default(kwargs, 'ph')
+        self.ta = get_or_default(kwargs, 'ta')
+        self.ca = get_or_default(kwargs, 'ca')
+        self.cya = get_or_default(kwargs, 'cya')
+        self.pool_temp = get_or_default(kwargs, 'pool_temp')
+        self.air_temp = get_or_default(kwargs, 'air_temp')
+        self.cpu_temp = get_or_default(kwargs, 'cpu_temp')
+
+    def __repr__(self):
+        return str(as_dict(self))
 
 
-EVENT_TYPES = [
-    'ADD-CL',  # add chlorine (gals)
-    'ADD-ACID',  # add acid (gals)
-    'ADD-ALGAECIDE',  # add algaecide (liters)
-    'SWIM',  # swim load (num people)
-    'BACKWASH',  # backwash filter
-    'CLEAN-FILTER',  # clean filter
-    'WEATHER',  # what type of weather event
-]
+EVENT_TYPES = {
+    'ADD-CL': ('Add chlorine', 'gal'),
+    'ADD-ACID': ('Add acid', 'gal'),
+    'ADD-ALGAECIDE': ('Add algaecide', 'liter'),
+    'SWIM': ('Swim load', 'num people'),
+    'BACKWASH': ('Backwash filter', ''),
+    'CLEAN-FILTER': ('Clean filter', ''),
+    'WEATHER': ('Weather event', ''),
+}
 
-READINGS_COLS = [
-    ('ts', 'INTEGER PRIMARY KEY', 'timestamp', 'ms since epoch'),
-    ('fc', 'REAL', 'Free Cl', 'ppm'),
-    ('tc', 'REAL', 'Total Cl', 'ppm'),
-    ('ph', 'REAL', 'pH', ''),
-    ('ta', 'INTEGER', 'Total Alkilinity', 'ppm'),
-    ('ca', 'INTEGER', 'Calcium Hardness', 'ppm'),
-    ('cya', 'INTEGER', 'CYA', 'ppm'),
-    ('pool_temp', 'REAL', 'Pool Temperature', '*C'),
-    ('air_temp', 'REAL', 'Air Temperature', '*C'),
-    ('cpu_temp', 'REAL', 'CPU Temperature', '*C'),
-    ('event', 'TEXT', 'Event', ''),
-    ('comment', 'TEXT', 'Comments', ''),
-]
-READING_INFO = {r[0]: (r[2], r[3]) for r in READINGS_COLS}
 
-SETTINGS_COLS = [
-    ('name', 'TEXT PRIMARY KEY'),
-    ('value', 'TEXT'),
-]
+class Event(db.Model):
+    '''
+    Events represent one of a set of things that could have
+        been done to the pool. They are always attached to a 
+        particular reading, which defines their timestamp. 
+        A Reading can have zero or more Events.
+    The meaning of the event quantity is dependent on 
+        the event type.
+    You can also define a comment about that particular event.
+    '''
+    id = db.Column(db.Integer, primary_key=True)
+    event_type = db.Column(db.String(80))
+    quantity = db.Column(db.Float)
+    comment = db.Column(db.Text)
+
+    reading_ts = db.Column(db.Integer, db.ForeignKey('reading.ts'))
+    reading = db.relationship('Reading',
+                              backref=db.backref('events', lazy='dynamic'),
+                              cascade='delete')
+
+    definitions = [
+        ('event_type', 'Event Type', ''),
+        ('quantity', 'Event Quantity', ''),
+        ('comment', 'Event Comment', ''),
+    ]
+    info = {d[0]: (d[1], d[2]) for d in definitions}
+
+    def __init__(self, reading, **kwargs):
+        if reading == None:
+            raise Error('reading must be supplied')
+        if 'event_type' not in kwargs:
+            raise Error('event_type must be supplied')
+        if kwargs['event_type'] not in EVENT_TYPES:
+            raise Error('Unknown event type')
+
+        self.reading = reading
+        self.event_type = kwargs['event_type']
+        self.quantity = get_or_default(kwargs, 'quantity')
+        self.comment = get_or_default(kwargs, 'comment')
+
+    def __repr__(self):
+        desc, unit = EVENT_TYPES[self.event_type]
+        parts = [desc]
+        if self.quantity:
+            parts += [' (', str(self.quantity)]
+            if unit:
+                parts += [' ', unit]
+            parts += [')']
+        if self.comment:
+            parts += [': ', self.comment]
+        return ''.join(parts)
+
+
 SETTINGS_TYPES = {
     # when the pi was turned on last (s since epoch)
     'start_up_time': (int, 0),
@@ -79,137 +153,141 @@ SETTINGS_TYPES = {
     'database_version': (int, 1),
 }
 
-TABLES = ['settings', 'readings']
-TABLES_TO_COLS = {
-    'settings': SETTINGS_COLS,
-    'readings': READINGS_COLS,
-}
-QUERIES = {table_name: _construct_queries(TABLES_TO_COLS[table_name], table_name)
-           for table_name in TABLES_TO_COLS}
+
+class Setting(db.Model):
+    '''
+    Settings are key,value pairs which define properties
+        of the system.
+    A setting's key must be one of the predefined
+        SETTINGS_TYPES.
+    The value's context is dependent on its type, and a
+        converted value can be secured by calling get_value().
+        The class will convert it according to its setting type.
+    '''
+    name = db.Column(db.String(80), primary_key=True)
+    value = db.Column(db.String(80))
+
+    definitions = [
+        ('name', 'Setting Name', ''),
+        ('value', 'Setting Value', ''),
+    ]
+    info = {d[0]: (d[1], d[2]) for d in definitions}
+
+    def __init__(self, name, value):
+        if name not in SETTINGS_TYPES:
+            raise ValueError('Unknown setting {}'.format(name))
+        self.name = name
+        self.value = value
+
+    def __repr__(self):
+        converted = SETTINGS_TYPES[self.name][0](self.value)
+        return '{}: {}'.format(self.name, converted)
+
+    def get_value(self):
+        try:
+            converter = SETTINGS_TYPES[self.name][0]
+        except KeyError:
+            raise Exception('No setting known for {}'.format(self.name))
+        return converter(self.value)
 
 
-def setup_database():
-    '''Creates the initial database tables'''
-    needs_settings = False
-    try:
-        dbv = int(CONN.execute(
-            'SELECT value FROM settings WHERE name = "database_version"').fetchone()[0])
-        if dbv != DB_VERSION:
-            raise Exception('DB needs schema migration')
-    except sqlite3.DatabaseError as e:
-        print('got db error while loading settings: ', e)
-        needs_settings = True
+def _setup_database():
+    '''
+    Performs initial database setup. It is safe to call
+    this method even after the database has been set up.
+    If the database version has changed from the value
+    stored in the database, then this method throws; in
+    that case, a migration procedure should be developed. 
+    This is automatically called upon import.
+    '''
+    db.create_all()
 
-    for table_name in TABLES:
-        CONN.execute(QUERIES[table_name]['create'])
+    # check database version
+    cur_version = Setting.query.get('database_version')
+    if cur_version != None:
+        if cur_version.get_value() == DATABASE_VERSION:
+            return
+        raise Exception('DB needs schema migration from {} to {}'
+                        .format(cur_version.get_version(), DATABASE_VERSION))
 
-    if needs_settings:
-        print('initializing settings')
-        for name in SETTINGS_TYPES:
-            _, initial = SETTINGS_TYPES[name]
-            CONN.execute('INSERT INTO settings(name, value) values(?, ?)',
-                         (name, initial))
-        CONN.commit()
-
-
-setup_database()
-
-
-_settings = {k: SETTINGS_TYPES[k][0](v)
-             for k, v in CONN.execute('SELECT * FROM settings')}
+    # initilize settings
+    for name in SETTINGS_TYPES:
+        _, initial = SETTINGS_TYPES[name]
+        s = Setting(name, str(initial))
+        db.session.add(s)
+    db.session.commit()
 
 
-def do_insert(table_name, values, with_ts=False):
-    '''inserts the values into the named table'''
-    if with_ts and 'ts' not in values:
-        now = int(time.time() * 1000)
-        values['ts'] = now
-    else:
-        now = values['ts']
-    cols = TABLES_TO_COLS[table_name]
-    to_insert = tuple(
-        values[col[0]] if col[0] in values else None for col in cols)
-    print(QUERIES[table_name]['insert'], to_insert)
-    CONN.execute(QUERIES[table_name]['insert'], to_insert)
-    CONN.commit()
-    return now
+_setup_database()
+_settings = {s.name: s.get_value() for s in Setting.query.filter().all()}
 
 
-def do_get(table_name, after, before):
-    '''returns the values from the table between the timestamps'''
-    query = QUERIES[table_name]['select']
-    return CONN.execute(query, (after, before)).fetchall()
+def add_reading(json_reading):
+    '''Convert JSON into a reading object'''
+    r = Reading(**json_reading)
+    db.session.add(r)
+    db.session.commit()
 
 
-def do_delete(table_name, after, before):
-    '''delete values from the named table between the timestamps'''
-    query = QUERIES[table_name]['delete']
-    CONN.execute(query, (after, before))
-    CONN.commit()
-
-
-def add_reading(reading):
-    '''Add a new reading manually'''
-    return do_insert('readings', reading, True)
+def _get_readings_query(after, before):
+    return Reading.query.filter(Reading.ts >= after, Reading.ts <= before)
 
 
 def get_readings(after, before):
-    '''Returns readings between after and before, inclusive.'''
-    return select('readings', time_tuple=(after, before)).fetchall()
+    return _get_readings_query(after, before).all()
+
+
+def get_reading_at(reading_ms):
+    return Reading.query.filter(Reading.ts == reading_ms).first()
 
 
 def get_most_recent(reading_type):
-    '''Returns the most recent reading'''
-    if reading_type not in QUERIES['readings']['indexes']:
-        raise Exception('Unknown reading type ' + str(reading_type))
+    col = getattr(Reading, reading_type)
+    return Reading.query\
+        .filter(col != None)\
+        .order_by(desc(Reading.ts))\
+        .first()
 
-    return CONN.execute('SELECT {}, MAX(ts) FROM readings WHERE {} is not NULL'
-                        .format(reading_type, reading_type)).fetchone()
+
+def add_event(reading, json_event):
+    e = Event(reading, **json_event)
+    db.session.add(e)
+    db.session.commit()
+
+
+def add_event_by_time(reading_time, json_event):
+    r = get_reading_at(reading_time)
+    add_event(r, json_event)
 
 
 def get_events(after, before):
-    return select('readings', columns=['ts', 'event', 'column'], time_tuple=(after, before)).fetchall()
+    return Event.query.filter(Event.reading.ts >= after, Event.reading.ts <= before).all()
+
+
+def get_event_at(reading_ms):
+    return Event.query.filter(Event.reading.ts == reading_ms).first()
 
 
 def delete_readings(after, before):
-    '''Deletes readings between after and before, inclusive.'''
-    do_delete('readings', after, before)
+    deleted = _get_readings.query(after, before).delete()
+    db.session.commit()
+    return deleted
 
 
 def get_settings():
-    '''returns all the current settings'''
     return _settings
 
 
 def update_setting(key, value, delay_commit=False):
-    '''updates the current settings'''
-    # verify the key exists and the value is the right type while updating the internal settings
     if key == 'database_version':
-        raise Exception('Database version is read only')
+        raise Exception(
+            'Database version should not be changed programmatically')
     _settings[key] = SETTINGS_TYPES[key][0](value)
-    CONN.execute(
-        'UPDATE settings SET value = ? WHERE name = ?', (_settings[key], key))
+    Setting.query.filter(name=key).update({Setting.value: str(value)})
     if not delay_commit:
-        CONN.commit()
-
-
-def update_settings(settings):
-    '''update a group of settings as {key: value, key:value}'''
-    try:
-        for key in settings:
-            update_setting(key, settings[key], delay_commit=True)
-        CONN.commit()
-    except sqlite3.DatabaseError as e:
-        print('error while updating settings: ', e)
-        CONN.rollback()
-        raise(e)
+        db.session.commit()
 
 
 def should_compensate(water_temp):
     '''Returns true if temperature compensation should be applied'''
     return abs(water_temp - _settings['compensation_temp']) > _settings['compensation_delta']
-
-
-def get_averages():
-    '''Returns a recent, rolling average of data values'''
-    return {}
