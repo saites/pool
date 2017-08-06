@@ -6,6 +6,7 @@ import functools
 import time
 
 from flask import Flask, request, jsonify, abort, render_template, flash
+from sqlalchemy.exc import IntegrityError
 import flask
 
 from forms import ManualReadingForm
@@ -62,23 +63,20 @@ def extract_str(name, default=None):
 @app.route('/')
 def get_index():
     '''Creates and returns the index page'''
-    indexes = dal.QUERIES['readings']['indexes']
-
     to_return = [
         'fc', 'tc', 'ph', 'ta', 'ca', 'cya'
     ]
 
     categories = []
     for name in to_return:
-        display, units = dal.READING_INFO[name]
-        value, when = dal.get_most_recent(name)
-        print(value, when)
+        display, units = dal.Reading.info[name]
+        r = dal.get_most_recent(name)
         categories.append(
             {
                 'name': display,
-                'value': str(value) if value is not None else '-',
+                'value': str(getattr(r, name)) if r is not None else '-',
                 'unit': units,
-                'when': when if when is not None else '-'
+                'when': r.ts if r is not None else '-'
             }
         )
     return render_template('dashboard.html', categories=categories)
@@ -96,14 +94,52 @@ def get_manual_reading_page():
             'ta': form.ta.data,
             'ca': form.ca.data,
             'cya': form.cya.data,
-            'event': form.event.data if form.event.data != '' else None,
-            'comment': form.comment.data if form.comment.data != '' else None,
-            'when': int(time.mktime(form.when.data.timetuple()) * 1000)
+            'ts': int(time.mktime(form.when.data.timetuple()) * 1000)
         }
-        dal.add_reading(reading)
+        try:
+            r = dal.add_reading(reading)
+        except IntegrityError as e:
+            flash('A reading for that time already exists')
+            return flask.redirect('/readings/manual')
+
+        if form.event.data != '':
+            print(form.event.data)
+            event = {
+                'event_type': form.event.data,
+                'comment': form.comment.data if form.comment.data != '' else None
+            }
+            dal.add_event(r, event)
         flash('Reading added')
         return flask.redirect('/readings/manual')
     return render_template('add_reading.html', form=form)
+
+
+@app.route('/readings/list', methods=['GET', 'POST'])
+def get_readings_list():
+    after = extract_float('after', 0)
+    before = extract_float('before', int(1000 * time.time()))
+    readings = dal.get_readings(after, before)
+
+    to_return = [
+        'fc', 'tc', 'ph', 'ta', 'ca', 'cya'
+    ]
+
+    categories = []
+    r = readings[0]
+    for name in to_return:
+        display, units = dal.Reading.info[name]
+        categories.append(
+            {
+                'name': display,
+                'value': getattr(r, name),
+                'unit': units,
+                'when': r.ts
+            }
+        )
+        print(str(getattr(r, name)))
+
+    return render_template('display_readings.html', readings=readings,
+                           categories=categories)
 
 
 @app.route('/readings/csv')
@@ -113,12 +149,12 @@ def get_readings_csv():
     before = extract_float('before', int(1000 * time.time()))
     readings = dal.get_readings(after, before)
 
-    indexes = dal.QUERIES['readings']['indexes']
+    indexes = [d[0] for d in dal.Reading.definitions]
 
     def generate():
         yield ','.join(indexes) + '\n'
         for r in readings:
-            yield ','.join([str(_) for _ in r]) + '\n'
+            yield str(r) + '\n'
     return flask.Response(generate(), mimetype='text/csv')
 
 
@@ -131,12 +167,6 @@ def get_readings_datatable():
     before = extract_float('before', int(1000 * time.time()))
     readings = dal.get_readings(after, before)
 
-    indexes = dal.QUERIES['readings']['indexes']
-    when_idx = indexes['ts']
-    pH_idx = indexes['ph']
-    pool_temp_idx = indexes['pool_temp']
-    event_idx = indexes['event']
-
     chart_data = {
         'cols': [
             {'id': 'when', 'label': 'Time', 'type': 'datetime'},
@@ -146,10 +176,10 @@ def get_readings_datatable():
         ],
         'rows': [
             {'c': [
-                {'v': 'Date({})'.format(r[when_idx])},
-                {'v': r[event_idx]},
-                {'v': r[pH_idx]},
-                {'v': r[pool_temp_idx]}
+                {'v': 'Date({})'.format(r.ts)},
+                {'v': r.get_events_str()},
+                {'v': r.ph},
+                {'v': r.pool_temp}
             ]} for r in readings
         ]
     }
@@ -168,8 +198,7 @@ def handle_reading():
         dal.delete_readings(after, before)
         return {"response": "OK"}
     if request.method == 'POST':
-        now = dal.add_reading(request.get_json())
-        return {'ts': now}
+        return dal.add_reading(request.get_json())
     else:
         after = extract_float('after', 0)
         before = extract_float('before', int(1000 * time.time()))

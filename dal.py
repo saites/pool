@@ -73,8 +73,10 @@ class Reading(db.Model):
     info = {d[0]: (d[1], d[2]) for d in definitions}
 
     def __init__(self, **kwargs):
-        if any([arg not in self.info for arg in kwargs]):
-            raise Exception('kwargs includes unknown arguments')
+        bad_args = [arg for arg in kwargs if arg not in self.info]
+        if any(bad_args):
+            raise Exception('kwargs includes unknown arguments: ' +
+                            ', '.join(bad_args))
         self.ts = get_or_default(kwargs, 'ts', int(time.time() * 1000))
         self.fc = get_or_default(kwargs, 'fc')
         self.tc = get_or_default(kwargs, 'tc')
@@ -87,7 +89,10 @@ class Reading(db.Model):
         self.cpu_temp = get_or_default(kwargs, 'cpu_temp')
 
     def __repr__(self):
-        return str(as_dict(self))
+        return ','.join([str(getattr(self, d[0])) for d in Reading.definitions])
+
+    def get_events_str(self):
+        return '\n'.join([str(e) for e in self.events])
 
 
 EVENT_TYPES = {
@@ -98,6 +103,8 @@ EVENT_TYPES = {
     'BACKWASH': ('Backwash filter', ''),
     'CLEAN-FILTER': ('Clean filter', ''),
     'WEATHER': ('Weather event', ''),
+
+
 }
 
 
@@ -108,10 +115,10 @@ class DalException(Exception):
 class Event(db.Model):
     '''
     Events represent one of a set of things that could have
-        been done to the pool. They are always attached to a 
-        particular reading, which defines their timestamp. 
+        been done to the pool. They are always attached to a
+        particular reading, which defines their timestamp.
         A Reading can have zero or more Events.
-    The meaning of the event quantity is dependent on 
+    The meaning of the event quantity is dependent on
         the event type.
     You can also define a comment about that particular event.
     '''
@@ -244,6 +251,7 @@ def add_reading(json_reading):
     r = Reading(**json_reading)
     db.session.add(r)
     db.session.commit()
+    return r
 
 
 def _get_readings_query(after, before):
@@ -270,6 +278,7 @@ def add_event(reading, json_event):
     e = Event(reading, **json_event)
     db.session.add(e)
     db.session.commit()
+    return e
 
 
 def add_event_by_time(reading_time, json_event):
@@ -323,8 +332,9 @@ def update_setting(key, value, delay_commit=False):
     if key == 'database_version':
         raise Exception(
             'Database version should not be changed programmatically')
-    _settings[key] = SETTINGS_TYPES[key][0](value)
-    Setting.query.filter_by(name=key).update({Setting.value: str(value)})
+    converted = SETTINGS_TYPES[key][0](value)
+    _settings[key] = converted
+    Setting.query.filter_by(name=key).update({Setting.value: str(converted)})
     if not delay_commit:
         db.session.commit()
 

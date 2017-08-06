@@ -27,6 +27,9 @@ for e in elems:
 
 assert len(dal.get_readings(1, 3)) == 3
 assert dal.get_most_recent('fc').fc == 10.0
+assert dal.get_most_recent('ph').ph == 7.5
+assert dal.get_most_recent('tc').tc == 0
+assert getattr(dal.get_most_recent('tc'), 'tc') == 0
 
 dal.add_event_by_time(1, {
     'event_type': 'ADD-CL',

@@ -69,23 +69,25 @@
 
 <div class="content">
   <p>
-  <div class="pure-g">
-    <div class="pure-u-1-5"></div>
+  <div class="pure-g justify-center">
     <div class="pure-u-3-5">
-      <h2>Most Recent Records</h2>
-      <table class="pure-table pure-table-horizontal">
+      <h2 class="text-center">Most Recent Readings</h2>
+      <table class="pure-table pure-table-horizontal expanded text-center">
         <tbody>
           {% for category in categories %}
             <tr>
               <td>{{category.name}}</td>
+              {% if category.value != '-' %}
+              <td>{{category.value |float|round(2)}}</td>
+              {% else %}
               <td>{{category.value}}</td>
+              {% endif %}
               <td>{{category.unit}}</td>
             </tr>
           {% endfor %}
           </tbody>
       </table>
     </div>
-    <div class="pure-u-3-5"></div>
   </div>
 
   <div class="chart">
