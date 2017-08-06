@@ -1,6 +1,7 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import desc
+from sqlalchemy import desc, event
+from sqlalchemy.engine import Engine
 import time
 
 app = Flask(__name__)
@@ -10,6 +11,14 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
 DATABASE_VERSION = 1
+
+
+@event.listens_for(Engine, "connect")
+def set_sqlite_pragmas(dbapi_connection, connection_record):
+    '''defines pragmas for use with the database connection'''
+    cursor = dbapi_connection.cursor()
+    cursor.execute('PRAGMA foreign_keys=ON')
+    cursor.close()
 
 
 def as_dict(db_model):
@@ -33,6 +42,7 @@ class Reading(db.Model):
     All other values are optional, and can be specified as
         **kwarsg.
     '''
+    __tablename__ = 'reading'
     ts = db.Column(db.Integer, primary_key=True)
     fc = db.Column(db.Float)
     tc = db.Column(db.Float)
@@ -43,6 +53,10 @@ class Reading(db.Model):
     pool_temp = db.Column(db.Float)
     air_temp = db.Column(db.Float)
     cpu_temp = db.Column(db.Float)
+    events = db.relationship('Event',
+                             backref='reading',
+                             cascade='all, delete-orphan',
+                             passive_deletes=True)
 
     definitions = [
         ('ts', 'timestamp', 'ms since epoch'),
@@ -87,6 +101,10 @@ EVENT_TYPES = {
 }
 
 
+class DalException(Exception):
+    pass
+
+
 class Event(db.Model):
     '''
     Events represent one of a set of things that could have
@@ -97,15 +115,14 @@ class Event(db.Model):
         the event type.
     You can also define a comment about that particular event.
     '''
-    id = db.Column(db.Integer, primary_key=True)
+    __tablename__ = 'event'
+    event_id = db.Column(db.Integer, primary_key=True)
     event_type = db.Column(db.String(80))
     quantity = db.Column(db.Float)
     comment = db.Column(db.Text)
 
-    reading_ts = db.Column(db.Integer, db.ForeignKey('reading.ts'))
-    reading = db.relationship('Reading',
-                              backref=db.backref('events', lazy='dynamic'),
-                              cascade='delete')
+    reading_ts = db.Column(db.Integer,
+                           db.ForeignKey('reading.ts', ondelete='CASCADE'))
 
     definitions = [
         ('event_type', 'Event Type', ''),
@@ -116,11 +133,11 @@ class Event(db.Model):
 
     def __init__(self, reading, **kwargs):
         if reading == None:
-            raise Error('reading must be supplied')
+            raise DalException('reading must be supplied')
         if 'event_type' not in kwargs:
-            raise Error('event_type must be supplied')
+            raise DalException('event_type must be supplied')
         if kwargs['event_type'] not in EVENT_TYPES:
-            raise Error('Unknown event type')
+            raise DalException('Unknown event type')
 
         self.reading = reading
         self.event_type = kwargs['event_type']
@@ -257,15 +274,23 @@ def add_event(reading, json_event):
 
 def add_event_by_time(reading_time, json_event):
     r = get_reading_at(reading_time)
+    if r is None:
+        raise DalException('No reading at {}'.format(reading_time))
     add_event(r, json_event)
 
 
 def get_events(after, before):
-    return Event.query.filter(Event.reading.ts >= after, Event.reading.ts <= before).all()
+    return Event.query.filter(Event.reading_ts >= after, Event.reading_ts <= before).all()
 
 
-def get_event_at(reading_ms):
-    return Event.query.filter(Event.reading.ts == reading_ms).first()
+def get_events_at(reading_ms):
+    return Event.query.filter(Event.reading_ts == reading_ms).all()
+
+
+def get_events_by_kind(after, before, kind):
+    return Event.query.filter(Event.reading_ts >= after,
+                              Event.reading_ts <= before,
+                              Event.event_type == kind).all()
 
 
 def delete_readings(after, before):
@@ -274,8 +299,24 @@ def delete_readings(after, before):
     return deleted
 
 
+def delete_event_by_id(event_id):
+    deleted = Event.query.filter(Event.event_id == event_id).delete()
+    db.session.commit()
+    return deleted >= 1
+
+
+def delete_reading_at(reading_ts):
+    deleted = Reading.query.filter(Reading.ts == reading_ts).delete()
+    db.session.commit()
+    return deleted >= 1
+
+
 def get_settings():
     return _settings
+
+
+def get_setting_value(key):
+    return Setting.query.filter_by(name=key).first().get_value()
 
 
 def update_setting(key, value, delay_commit=False):
@@ -283,7 +324,7 @@ def update_setting(key, value, delay_commit=False):
         raise Exception(
             'Database version should not be changed programmatically')
     _settings[key] = SETTINGS_TYPES[key][0](value)
-    Setting.query.filter(name=key).update({Setting.value: str(value)})
+    Setting.query.filter_by(name=key).update({Setting.value: str(value)})
     if not delay_commit:
         db.session.commit()
 
