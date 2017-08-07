@@ -11,7 +11,7 @@ from sqlalchemy.exc import IntegrityError
 import flask
 import flask_sijax
 
-from forms import ManualReadingForm
+from forms import ManualReadingForm, SettingsForm
 import sensors
 import dal
 import schedule
@@ -178,13 +178,17 @@ def get_readings_datatable():
             {'id': 'when', 'label': 'Time', 'type': 'datetime'},
             {'id': 'event', 'type': 'string', 'role': 'annotation'},
             {'id': 'pH', 'label': 'pH', 'type': 'number'},
+            {'id': 'fc', 'label': 'Free Chlorine', 'type': 'number'},
+            {'id': 'tc', 'label': 'Total Chlorine', 'type': 'number'},
             {'id': 'pool_temp', 'label': 'Pool Temperature', 'type': 'number'}
         ],
         'rows': [
             {'c': [
                 {'v': 'Date({})'.format(r.ts)},
-                {'v': r.get_events_str()},
+                {'v': None},  # r.get_events_str()},
                 {'v': r.ph},
+                {'v': r.fc},
+                {'v': r.tc},
                 {'v': r.pool_temp}
             ]} for r in readings
         ]
@@ -246,11 +250,13 @@ def handle_event():
     return dal.get_events(after, before)
 
 
-@app.route('/settings', methods=['GET', 'PUT'])
-@return_json
+@app.route('/settings', methods=['GET', 'POST'])
 def handle_settings():
     '''Get or update settings'''
     # should be {setting: value}
+
+    form = SettingsForm(request.form)
+
     if request.method == 'PUT':
         new_settings = request.get_json()
         dal.update_settings(new_settings)
@@ -258,5 +264,15 @@ def handle_settings():
         if 'reading_interval' in updated_settings:
             schedule.set_reading_interval(updated_settings['reading_interval'])
         return updated_settings
+    if request.method == 'POST' and form.validate:
+        new_settings = {
+            'compensation_delta': form.comp_delta.data,
+            'reading_interval': form.reading_interval.data
+        }
+        dal.update_settings(new_settings)
+        updated_settings = dal.get_settings()
+        schedule.set_reading_interval(updated_settings['reading_interval'])
+        return flask.redirect('/settings')
     else:
-        return dal.get_settings()
+        settings = dal.get_settings()
+        return render_template('settings.html', form=form, settings=settings)

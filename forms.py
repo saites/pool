@@ -4,7 +4,7 @@ from wtforms import Form, DateTimeField, SelectField,\
 from wtforms.validators import Optional, DataRequired, NumberRange
 from dal import EVENT_TYPES
 
-event_d = {}
+event_d = {'': ''}
 for formal, info in EVENT_TYPES.items():
     if info[1] != '':
         event_d[formal] = '{} ({})'.format(info[0], info[1])
@@ -35,3 +35,10 @@ class ManualReadingForm(Form):
     when = DateTimeField('When',
                          [DataRequired()],
                          format='%Y-%m-%d %H:%M')
+
+
+class SettingsForm(Form):
+    comp_delta = IntegerField('Compensation Delta',
+                              [Optional(), NumberRange(min=1, max=30)])
+    reading_interval = IntegerField('Reading Interval',
+                                    [Optional(), NumberRange(min=0, max=3600)])

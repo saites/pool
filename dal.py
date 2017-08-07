@@ -271,8 +271,8 @@ def get_reading_at(reading_ms):
 def get_most_recent(reading_type):
     col = getattr(Reading, reading_type)
     return Reading.query\
-        .filter(col != None)\
         .order_by(desc(Reading.ts))\
+        .filter(col != None)\
         .first()
 
 
@@ -339,6 +339,20 @@ def update_setting(key, value, delay_commit=False):
     Setting.query.filter_by(name=key).update({Setting.value: str(converted)})
     if not delay_commit:
         db.session.commit()
+
+
+def update_settings(setting_map):
+    print(setting_map)
+    try:
+        for key in setting_map:
+            value = setting_map[key]
+            if value == '' or value == None:
+                continue
+            update_setting(key, value)
+    except Exception as e:
+        db.session.rollback()
+        raise e
+    db.session.commit()
 
 
 def should_compensate(water_temp):

@@ -1,6 +1,33 @@
 {% extends "layout.html" %} 
-
 {% block content %}
+{% from "_form_helpers.html" import render_field %}
 
+<div class="header">
+    <h1>Settings</h1>
+</div>
+
+<div class="content">
+    <table class="pure-table pure-table-horizontal expanded text-center">
+        <tbody>
+            <tr>
+                <td>Compensation Delta</td>
+                <td>{{ settings['compensation_delta'] }}</td>
+            </tr>
+            <tr>
+                <td>Reading Interval</td>
+                <td>{{ settings['reading_interval'] }}</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <form class="pure-form pure-form-aligned" method="post">
+        <fieldset>
+            {{ render_field(form.comp_delta, "*C")}}
+            {{ render_field(form.reading_interval, "s")}}
+            {{ form.csrf_token }}
+            <button type="submit" class="pure-button pure-button-primary" value="submit">Update Settings</button>
+        </fieldset>
+    </form>
+</div>
 
 {% endblock %}
