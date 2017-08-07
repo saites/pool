@@ -1,9 +1,29 @@
-{% extends "layout.html" %}
-{% block content %}
+{% extends "layout.html" %} {% block content %} 
 
-{% block head %}
-{{ super() }}
+{% block head %} 
+{{ super() }} 
+<script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+<script type="text/javascript" src="/static/js/sijax/sijax.js"></script>
+<script type="text/javascript"> {{ g.sijax.get_js()|safe }} </script>
 
+<!--
+<link rel="stylesheet" href="https://unpkg.com/flatpickr/dist/flatpickr.min.css">
+<script src="https://unpkg.com/flatpickr"></script>
+-->
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/flatpickr/flatpickr.min.css') }}">
+<script src="{{ url_for('static', filename='vendor/flatpickr/flatpickr.min.js') }}"></script>
+
+<script type="text/javascript">
+    window.onload = function() {
+        var today = new Date()
+        var lastWeek = (new Date()).setDate(today.getDate()-7)
+        flatpickr("#dateRange", {
+            enableTime: true,
+            mode: "range",
+            defaultDate: [today , lastWeek]
+        });
+    }
+</script>
 {% endblock %}
 
 <div class="header">
@@ -11,40 +31,50 @@
 </div>
 
 <div class="content">
-  <div class="pure-g">
-      <div class="pure-u-1-3">
-        <div class="pure-menu">
-            <span class="pure-menu-heading">Reading</span>
-            <ul class="pure-menu-list">
-            {% for reading in readings %}
-                <li class="pure-menu-item">
-                    <button class="pure-button">
-                    {{ reading.ts }}
-                    </button>
-                </li>
-            {% endfor %}
-            </ul>
+    <div class="pure-g text-center">
+        <div class="pure-u-1-1">
+            <form class="pure-form pure-form-aligned" method="post" id="dateSelection">
+                <fieldset>
+                    <label for="dateRange">Dates</label>
+                    <input id="dateRange" name="dateRange" type="text" class="flatpickr-input rangebox">
+                    <button class="pure-button" id="go">Go!</button>
+                </fieldset>
+            </form>
         </div>
     </div>
 
-    <div class="pure-u-2-3">
-      <table class="pure-table pure-table-horizontal expanded text-center">
-        <tbody>
-          {% for category in categories %}
-            <tr>
-              <td>{{category.name}}</td>
-              {% if category.value != None %}
-              <td>{{category.value |float|round(2)}}</td>
-              {% else %}
-              <td>-</td>
-              {% endif %}
-              <td>{{category.unit}}</td>
-            </tr>
-          {% endfor %}
-          </tbody>
-      </table>
-    </div>
-  </div>
+    <div id="readings"></div>
+
+    <script type="text/javascript">
+        $(function() {
+            $('#dateSelection').bind('submit', function() {
+                const dates = document.querySelector('#dateRange')._flatpickr.selectedDates;
+                const after = dates[0].getTime();
+                const before = dates[1].getTime();
+                Sijax.request('get_readings', [after, before]);
+                return false;
+            })
+        });
+
+        function handle_remove(event) {
+            var target = event.target.id;
+            if (!target.startsWith('remove_')) {
+                return;
+            }
+            event.target.disabled = true;
+            console.log(target)
+            var parts = target.split('_');
+            var ts = parts[1]
+            $('#li_' + ts).addClass('removed-item')
+                .one('webkitTransitionEnd otransitionend oTransitionEnd msTransitionEnd transitionend', function(e) 
+                {
+                    $(this).remove();
+                    Sijax.request('remove_reading', [ts])
+                })
+        }
+
+        document.getElementById('readings').addEventListener('click', handle_remove);
+    </script>
 </div>
 
 {% endblock %}

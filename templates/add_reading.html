@@ -1,14 +1,16 @@
-{% extends "layout.html" %} {% block content %}
+{% extends "layout.html" %} 
+{% block content %}
 {% from "_form_helpers.html" import render_field %}
 
 {% block head %} 
 {{ super() }}
-<link rel="stylesheet" href="https://unpkg.com/flatpickr/dist/flatpickr.min.css">
-<script src="https://unpkg.com/flatpickr"></script>
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/flatpickr/flatpickr.min.css') }}">
+<script src="{{ url_for('static', filename='vendor/flatpickr/flatpickr.min.js') }}"></script>
 <script type="text/javascript">
     window.onload = function() {
         flatpickr("#when", {
             enableTime: true,
+            defaultDate: new Date()
         });
     }
 </script>
@@ -27,8 +29,9 @@
             {{ render_field(form.ta, "ppm") }}
             {{ render_field(form.ca, "ppm") }}
             {{ render_field(form.cya, "ppm") }}
-            {{ render_field(form.event) }}
-            {{ render_field(form.comment) }}
+            {{ render_field(form.event_type) }}
+            {{ render_field(form.event_quantity) }}
+            {{ render_field(form.event_comment) }}
             {{ render_field(form.when) }}
             {{ form.csrf_token }}
 

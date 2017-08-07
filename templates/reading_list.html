@@ -1,0 +1,24 @@
+{% from "_form_helpers.html" import render_reading_elem %}
+<ul class="expandable-list" id="readings">
+    {% for r in readings %}
+    <li id="li_{{ r.ts }}">
+        <input type="checkbox" id="cb_{{ r.ts }}" />
+        <label for="cb_{{ r.ts }}">{{ r.ts|ms_to_str}}</label>
+        <button class="pure-button button-small right-float"
+            id="remove_{{ r.ts }}">Remove</button>
+
+        <div>
+            <table class="pure-table pure-table-horizontal expanded text-center">
+                <tbody>
+                    {{ render_reading_elem(r.fc, 'Free Cl', 'ppm', r.fc|float|round(2) )}}
+                    {{ render_reading_elem(r.tc, 'Total Cl', 'ppm', r.tc|float|round(2) )}}
+                    {{ render_reading_elem(r.ph, 'pH', '', r.ph|float|round(2) )}}
+                    {{ render_reading_elem(r.ta, 'Total Alkilinity', 'ppm', r.ta|int )}}
+                    {{ render_reading_elem(r.ca, 'Calcium Hardness', 'ppm', r.ca|int )}}
+                    {{ render_reading_elem(r.cya, 'CYA', 'ppm', r.cya|int )}}
+                </tbody>
+            </table>
+        </div>
+    </li>
+    {% endfor %}
+</ul>

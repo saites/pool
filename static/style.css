@@ -28,3 +28,86 @@
 .restricted-width {
     width: 10em;
 }
+
+.expandable-list {
+    list-style-type: none;
+}
+.expandable-list label {
+    background-color: #AAAFAB;
+    border-radius: 2px;
+    padding: 3px;
+    padding-left: 25px;
+    color: white;
+}
+.expandable-list li {
+    margin: 10px;
+    padding:5px;
+    border: 1px solid #ABC;
+    border-radius: 2px;
+    height: 100%;
+}
+
+.expandable-list input[type=checkbox] { display:none; }
+.expandable-list input[type=checkbox] ~ div {
+    max-height: 0;
+    max-width: 100%;
+    opacity: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    -webkit-transition: all 0.25s ease-in-out;
+    -moz-transition:all 0.25s ease-in-out;
+    -o-transition:all 0.25s ease-in-out;
+    transition:all 0.25s ease-in-out;
+}
+.expandable-list input[type=checkbox]:checked ~ div {
+    max-height: 300px;
+    max-width: 100%;
+    opacity: 1;
+}
+
+.expandable-list input[type=checkbox] + label:before {
+    transform-origin:25% 50%;
+    border: 8px solid transparent;
+    border-width: 8px 12px;	
+    border-left-color: white;
+    margin-left: -20px;
+	width: 0;
+	height: 0;
+	display: inline-block;
+	text-align: center;
+	content: '';
+	color: #AAAFAB;
+    -webkit-transition:all 0.25s ease;  
+    -moz-transition:all 0.25s ease;  
+    -o-transition:all 0.25s ease;  
+    transition:all 0.25s ease; 
+	position: absolute;
+	margin-top: 4px;
+}
+.expandable-list input[type=checkbox]:checked + label:before {
+	transform: rotate(90deg);
+}
+
+.button-small {
+    font-size: 70%;
+}
+
+.right-float {
+    float: right;
+}
+
+li.removed-item {
+    opacity: 0;
+    height: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    -webkit-transition: all 0.25s ease-in-out;
+    -moz-transition:all 0.25s ease-in-out;
+    -o-transition:all 0.25s ease-in-out;
+    transition:all 0.25s ease-in-out;
+}
+ 
+.rangebox {
+    width: 20em;
+    margin: 0px 1em;
+}

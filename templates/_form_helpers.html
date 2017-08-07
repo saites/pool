@@ -10,3 +10,15 @@
   {% endif %}
 </div>
 {% endmacro %}
+
+{% macro render_reading_elem(field, title, units, value) %}
+<tr>
+  <td>{{ title }}</td>
+  {% if field != None %}
+  <td>{{ value }}</td>
+  {% else %}
+  <td>-</td>
+  {% endif %}
+  <td>{{ units }}</td>
+</tr>
+{% endmacro %}

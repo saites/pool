@@ -4,7 +4,6 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0"> {% block head %}
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 
   <link rel="stylesheet" href="https://unpkg.com/purecss@1.0.0/build/pure-min.css" integrity="sha384-" crossorigin="anonymous">
 
@@ -22,6 +21,7 @@
   <link rel="stylesheet" href="https://unpkg.com/purecss@1.0.0/build/grids-responsive-min.css">
   <!--<![endif]-->
 
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <title>Pool Conditions</title>
   {% endblock %}
 </head>
@@ -51,6 +51,14 @@
 
           <li class="pure-menu-item">
             <a href="#" class="pure-menu-link">View Events</a>
+          </li>
+
+          <li class="pure-menu-item">
+            <a href="/settings" class="pure-menu-link">Settings</a>
+          </li>
+
+          <li class="pure-menu-item">
+            <a href="#" class="pure-menu-link">Diagnostics</a>
           </li>
         </ul>
       </div>

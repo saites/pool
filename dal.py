@@ -92,6 +92,8 @@ class Reading(db.Model):
         return ','.join([str(getattr(self, d[0])) for d in Reading.definitions])
 
     def get_events_str(self):
+        if len(self.events) == 0:
+            return None
         return '\n'.join([str(e) for e in self.events])
 
 
@@ -103,8 +105,6 @@ EVENT_TYPES = {
     'BACKWASH': ('Backwash filter', ''),
     'CLEAN-FILTER': ('Clean filter', ''),
     'WEATHER': ('Weather event', ''),
-
-
 }
 
 
@@ -259,7 +259,9 @@ def _get_readings_query(after, before):
 
 
 def get_readings(after, before):
-    return _get_readings_query(after, before).all()
+    return _get_readings_query(after, before)\
+        .order_by(desc(Reading.ts))\
+        .all()
 
 
 def get_reading_at(reading_ms):

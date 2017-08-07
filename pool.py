@@ -4,10 +4,12 @@ Pool module for defining Flask routes to store and update info
 
 import functools
 import time
+import os
 
 from flask import Flask, request, jsonify, abort, render_template, flash
 from sqlalchemy.exc import IntegrityError
 import flask
+import flask_sijax
 
 from forms import ManualReadingForm
 import sensors
@@ -15,8 +17,13 @@ import dal
 import schedule
 import secret_key
 
+path = os.path.join('.', os.path.dirname(__file__), 'static/js/sijax/')
+
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
+app.config['SIJAX_STATIC_PATH'] = path
+app.config['SIJAX_JSON_URI'] = '/static/js/sijax/json2.js'
+flask_sijax.Sijax(app)
 secret_key.set_secret_key(app)
 
 schedule.set_reading_interval(dal.get_settings()['reading_interval'])
@@ -60,6 +67,12 @@ def extract_str(name, default=None):
         return default
 
 
+@app.template_filter('ms_to_str')
+def ms_to_str(ms):
+    '''Provides a common formatter for ms to strings'''
+    return time.strftime('%a, %d %b %Y at %H:%M:%S', time.localtime(ms / 1000))
+
+
 @app.route('/')
 def get_index():
     '''Creates and returns the index page'''
@@ -84,7 +97,7 @@ def get_index():
 
 @app.route('/readings/manual', methods=['GET', 'POST'])
 def get_manual_reading_page():
-    '''Creates and returns the manual readings form'''
+    '''Creates and handle the manual readings form'''
     form = ManualReadingForm(request.form)
     if request.method == 'POST' and form.validate():
         reading = {
@@ -102,11 +115,12 @@ def get_manual_reading_page():
             flash('A reading for that time already exists')
             return flask.redirect('/readings/manual')
 
-        if form.event.data != '':
-            print(form.event.data)
+        if form.event_type.data != '':
+            print(form.event_type.data)
             event = {
-                'event_type': form.event.data,
-                'comment': form.comment.data if form.comment.data != '' else None
+                'event_type': form.event_type.data,
+                'quantity': form.event_quantity.data if form.event_quantity.data != '' else None,
+                'comment': form.event_comment.data if form.event_comment.data != '' else None
             }
             dal.add_event(r, event)
         flash('Reading added')
@@ -116,30 +130,22 @@ def get_manual_reading_page():
 
 @app.route('/readings/list', methods=['GET', 'POST'])
 def get_readings_list():
-    after = extract_float('after', 0)
-    before = extract_float('before', int(1000 * time.time()))
-    readings = dal.get_readings(after, before)
+    def get_readings(obj_response, after, before):
+        print(after, before)
+        readings = dal.get_readings(after, before)
 
-    to_return = [
-        'fc', 'tc', 'ph', 'ta', 'ca', 'cya'
-    ]
+        html = render_template('reading_list.html', readings=readings)
+        obj_response.html('#readings', html)
 
-    categories = []
-    r = readings[0]
-    for name in to_return:
-        display, units = dal.Reading.info[name]
-        categories.append(
-            {
-                'name': display,
-                'value': getattr(r, name),
-                'unit': units,
-                'when': r.ts
-            }
-        )
-        print(str(getattr(r, name)))
+    def remove_reading(obj_response, ts):
+        dal.delete_reading_at(int(ts))
 
-    return render_template('display_readings.html', readings=readings,
-                           categories=categories)
+    if flask.g.sijax.is_sijax_request:
+        flask.g.sijax.register_callback('get_readings', get_readings)
+        flask.g.sijax.register_callback('remove_reading', remove_reading)
+        return flask.g.sijax.process_request()
+
+    return render_template('display_readings.html')
 
 
 @app.route('/readings/csv')

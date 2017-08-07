@@ -2,6 +2,15 @@ from wtforms import Form, DateTimeField, SelectField,\
     TextAreaField, StringField, IntegerField, FloatField
 
 from wtforms.validators import Optional, DataRequired, NumberRange
+from dal import EVENT_TYPES
+
+event_d = {}
+for formal, info in EVENT_TYPES.items():
+    if info[1] != '':
+        event_d[formal] = '{} ({})'.format(info[0], info[1])
+    else:
+        event_d[formal] = '{}'.format(info[0])
+event_choices = [(et, event_d[et]) for et in sorted(event_d.keys())]
 
 
 class ManualReadingForm(Form):
@@ -17,9 +26,12 @@ class ManualReadingForm(Form):
                       [Optional(), NumberRange(min=10, max=300)])
     cya = IntegerField('CYA',
                        [Optional(), NumberRange(min=0, max=1000)])
-    event = StringField('Event',
-                        [Optional()])
-    comment = TextAreaField('Comment', [Optional()])
+    event_type = SelectField('Event',
+                             [Optional()],
+                             choices=event_choices)
+    event_quantity = FloatField(
+        'Event Quantity', [Optional(), NumberRange(min=0, max=100)])
+    event_comment = StringField('Event Comment', [Optional()])
     when = DateTimeField('When',
                          [DataRequired()],
                          format='%Y-%m-%d %H:%M')
