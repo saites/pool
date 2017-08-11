@@ -96,7 +96,7 @@
     float: right;
 }
 
-li.removed-item {
+.removed-item {
     opacity: 0;
     height: 0;
     overflow: hidden;
@@ -110,4 +110,20 @@ li.removed-item {
 .rangebox {
     width: 20em;
     margin: 0px 1em;
+}
+
+.slow-fade-out {
+    opacity: 0;
+    -webkit-transition: all 0.25s ease-in-out;
+    -moz-transition:all 0.25s ease-in-out;
+    -o-transition:all 0.25s ease-in-out;
+    transition:all 0.25s ease-in-out;
+}
+
+.slow-fade-in {
+    opacity: 1;
+    -webkit-transition: all 0.3s ease-in-out;
+    -moz-transition:all 0.3s ease-in-out;
+    -o-transition:all 0.3s ease-in-out;
+    transition:all 0.3s ease-in-out;
 }

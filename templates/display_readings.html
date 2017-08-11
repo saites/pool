@@ -43,7 +43,8 @@
         </div>
     </div>
 
-    <div id="readings"></div>
+    <div id="readings">
+    </div>
 
     <script type="text/javascript">
         $(function() {
@@ -51,29 +52,61 @@
                 const dates = document.querySelector('#dateRange')._flatpickr.selectedDates;
                 const after = dates[0].getTime();
                 const before = dates[1].getTime();
-                Sijax.request('get_readings', [after, before]);
+
+                var readings = $('#readings')
+
+                var getData = $.ajax({
+                    url: '/readings?after='+after+'&before='+before
+                })
+
+                readings.fadeOut("slow", () => {
+                    getData.then((data) => {
+                        readings.html(data)
+                        readings.fadeIn()
+                    }), (err) => {
+                        console.log(err)
+                    }
+                })
+
                 return false;
             })
         });
 
-        function handle_remove(event) {
+        function handle_clicks(event) {
             var target = event.target.id;
-            if (!target.startsWith('remove_')) {
-                return;
-            }
-            event.target.disabled = true;
-            console.log(target)
             var parts = target.split('_');
-            var ts = parts[1]
-            $('#li_' + ts).addClass('removed-item')
-                .one('webkitTransitionEnd otransitionend oTransitionEnd msTransitionEnd transitionend', function(e) 
-                {
-                    $(this).remove();
-                    Sijax.request('remove_reading', [ts])
+            if (parts.length != 2) {
+                return
+            }
+
+            var ts = parts[1];
+
+            if (target.startsWith('remove_')) {
+                $('#edit_' + String(ts)).disabled = true;
+                event.target.disabled = true;
+                handle_remove(ts);
+            } else if (target.startsWith('edit_')) {
+                handle_edit(ts);
+            }
+        }
+        
+        function handle_remove(ts) {
+            $.ajax({
+                type: 'DELETE',
+                contentType: "application/json",
+                url: '/readings',
+                data: JSON.stringify({
+                    "ts": ts,
                 })
+            })
+
+            $('#li_' + String(ts)).fadeOut("slow")
         }
 
-        document.getElementById('readings').addEventListener('click', handle_remove);
+        function handle_edit(ts) {
+        }
+
+        document.getElementById('readings').addEventListener('click', handle_clicks)
     </script>
 </div>
 

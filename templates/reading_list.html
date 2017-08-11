@@ -1,11 +1,13 @@
 {% from "_form_helpers.html" import render_reading_elem %}
-<ul class="expandable-list" id="readings">
+<ul class="expandable-list" id="reading-list">
     {% for r in readings %}
     <li id="li_{{ r.ts }}">
         <input type="checkbox" id="cb_{{ r.ts }}" />
         <label for="cb_{{ r.ts }}">{{ r.ts|ms_to_str}}</label>
         <button class="pure-button button-small right-float"
-            id="remove_{{ r.ts }}">Remove</button>
+            style="margin-left: 2px" id="remove_{{ r.ts }}">Remove</button>
+        <button class="pure-button button-small right-float"
+            id="edit_{{ r.ts }}">Edit</button>
 
         <div>
             <table class="pure-table pure-table-horizontal expanded text-center">

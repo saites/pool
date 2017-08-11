@@ -40,7 +40,7 @@ def return_json(func):
 
 
 def extract_int(name, default=None):
-    '''Extracts a float from the query parameters'''
+    '''Extracts an int from the query parameters'''
     try:
         return int(request.args[name])
     except KeyError:
@@ -130,29 +130,21 @@ def get_manual_reading_page():
 
 @app.route('/readings/list', methods=['GET', 'POST'])
 def get_readings_list():
-    def get_readings(obj_response, after, before):
-        print(after, before)
-        readings = dal.get_readings(after, before)
-
-        html = render_template('reading_list.html', readings=readings)
-        obj_response.html('#readings', html)
-
     def remove_reading(obj_response, ts):
         dal.delete_reading_at(int(ts))
 
     if flask.g.sijax.is_sijax_request:
-        flask.g.sijax.register_callback('get_readings', get_readings)
         flask.g.sijax.register_callback('remove_reading', remove_reading)
         return flask.g.sijax.process_request()
 
     return render_template('display_readings.html')
 
 
-@app.route('/readings/csv')
+@app.route('/readings/csv', methods=['GET'])
 def get_readings_csv():
     '''Returns requested readings as a csv'''
-    after = extract_float('after', 0)
-    before = extract_float('before', int(1000 * time.time()))
+    after = extract_int('after', 0)
+    before = extract_int('before', int(1000 * time.time()))
     readings = dal.get_readings(after, before)
 
     indexes = [d[0] for d in dal.Reading.definitions]
@@ -169,8 +161,8 @@ def get_readings_csv():
 def get_readings_datatable():
     '''Returns a Google Visualization DataTable format
     for the requested data'''
-    after = extract_float('after', 0)
-    before = extract_float('before', int(1000 * time.time()))
+    after = extract_int('after', 0)
+    before = extract_int('before', int(1000 * time.time()))
     readings = dal.get_readings(after, before)
 
     chart_data = {
@@ -197,22 +189,31 @@ def get_readings_datatable():
 
 
 @app.route('/readings', methods=['GET', 'POST', 'DELETE'])
-@return_json
 def handle_reading():
     '''Get or record a reading'''
     if request.method == 'DELETE':
-        after = extract_float('after', None)
-        before = extract_float('before', None)
-        if after is None or before is None:
-            abort(400, 'after and before must both be specified')
-        dal.delete_readings(after, before)
-        return {"response": "OK"}
+        data = request.get_json()
+        try:
+            ts = int(data['ts'])
+        except KeyError:
+            abort(400, '')
+        dal.delete_reading_at(ts)
+        return jsonify({"response": "OK"})
     if request.method == 'POST':
-        return dal.add_reading(request.get_json())
+        return jsonify(dal.add_reading(request.get_json()))
     else:
-        after = extract_float('after', 0)
-        before = extract_float('before', int(1000 * time.time()))
-        return dal.get_readings(after, before)
+        after = extract_int('after', 0)
+        before = extract_int('before', int(1000 * time.time()))
+        readings = dal.get_readings(after, before)
+        return render_template('reading_list.html', readings=readings)
+
+
+@app.route('/readings/raw', methods=['GET'])
+@return_json
+def handle_raw_readings():
+    after = extract_int('after', 0)
+    before = extract_int('before', int(1000 * time.time()))
+    return [dal.as_dict(r) for r in dal.get_readings(after, before)]
 
 
 @app.route('/readings/current')

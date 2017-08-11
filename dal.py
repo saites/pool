@@ -271,8 +271,8 @@ def get_reading_at(reading_ms):
 def get_most_recent(reading_type):
     col = getattr(Reading, reading_type)
     return Reading.query\
-        .order_by(desc(Reading.ts))\
         .filter(col != None)\
+        .order_by(desc(Reading.ts))\
         .first()
 
 
