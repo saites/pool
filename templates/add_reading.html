@@ -23,16 +23,17 @@
 <div class="content">
     <form class="pure-form pure-form-aligned" method=post>
         <fieldset>
+            {{ render_field(form.when) }}
             {{ render_field(form.fc, "ppm") }}
             {{ render_field(form.tc, "ppm") }}
             {{ render_field(form.ph) }}
             {{ render_field(form.ta, "ppm") }}
             {{ render_field(form.ca, "ppm") }}
             {{ render_field(form.cya, "ppm") }}
+            {{ render_field(form.pool_temp, "*C") }}
             {{ render_field(form.event_type) }}
             {{ render_field(form.event_quantity) }}
             {{ render_field(form.event_comment) }}
-            {{ render_field(form.when) }}
             {{ form.csrf_token }}
 
             <button type="submit" class="pure-button pure-button-primary" value="submit">Submit</button>

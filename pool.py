@@ -5,6 +5,7 @@ Pool module for defining Flask routes to store and update info
 import functools
 import time
 import os
+import math
 
 from flask import Flask, request, jsonify, abort, render_template, flash
 from sqlalchemy.exc import IntegrityError
@@ -70,28 +71,58 @@ def extract_str(name, default=None):
 @app.template_filter('ms_to_str')
 def ms_to_str(ms):
     '''Provides a common formatter for ms to strings'''
-    return time.strftime('%a, %d %b %Y at %H:%M:%S', time.localtime(ms / 1000))
+    try:
+        return time.strftime('%a, %d %b %Y at %H:%M:%S', time.localtime(ms / 1000))
+    except:
+        return ms
+
+
+def calc_saturation_index(pH, temp, ca, ta, tds=320):
+    '''Returns the Langelier Saturation Index from pH, water temp (*C),
+    Calcium hardness, and total alkalinity, and optionally TDS (default 320).
+    Values between -0.3 and +0.5 are considered normal'''
+    if any([arg is None for arg in [pH, tds, temp, ca, ta]]):
+        return None
+    A = math.log10(tds - 1) / 10
+    B = -13.12 * math.log10(temp + 273) + 34.55
+    C = math.log10(ca) - 0.4
+    D = math.log10(ta)
+    pHs = (9.3 + A + B) - (C + D)
+    return pH - pHs
 
 
 @app.route('/')
 def get_index():
     '''Creates and returns the index page'''
     to_return = [
-        'fc', 'tc', 'ph', 'ta', 'ca', 'cya'
+        'fc', 'tc', 'ph', 'ta', 'ca', 'cya', 'pool_temp'
     ]
+    readings = {n: dal.get_most_recent(n) for n in to_return}
+    values = {n: getattr(readings[n], n) if readings[n] is not None else None
+              for n in to_return}
 
     categories = []
     for name in to_return:
         display, units = dal.Reading.info[name]
-        r = dal.get_most_recent(name)
+        r = readings[name]
+        v = values[name]
         categories.append(
             {
                 'name': display,
-                'value': str(getattr(r, name)) if r is not None else '-',
+                'value': str(v) if r is not None else '-',
                 'unit': units,
                 'when': r.ts if r is not None else '-'
             }
         )
+
+    SI = calc_saturation_index(
+        values['ph'], values['pool_temp'], values['ca'], values['ta'])
+    categories.append({
+        'name': 'Sat. Index',
+        'value': '{:.3}'.format(SI),
+        'units': '',
+        'when': 'Calculated'
+    })
     return render_template('dashboard.html', categories=categories)
 
 
@@ -107,6 +138,7 @@ def get_manual_reading_page():
             'ta': form.ta.data,
             'ca': form.ca.data,
             'cya': form.cya.data,
+            'pool_temp': form.pool_temp.data,
             'ts': int(time.mktime(form.when.data.timetuple()) * 1000)
         }
         try:
@@ -196,7 +228,7 @@ def handle_reading():
         try:
             ts = int(data['ts'])
         except KeyError:
-            abort(400, '')
+            abort(400, 'missing ts')
         dal.delete_reading_at(ts)
         return jsonify({"response": "OK"})
     if request.method == 'POST':

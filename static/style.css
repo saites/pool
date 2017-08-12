@@ -19,6 +19,7 @@
 
 .justify-center {
     justify-content: center;
+    margin: auto;
 }
 
 .expanded {
@@ -126,4 +127,12 @@
     -moz-transition:all 0.3s ease-in-out;
     -o-transition:all 0.3s ease-in-out;
     transition:all 0.3s ease-in-out;
+}
+
+.four-col td {
+    width: 25%;
+}
+
+.three-col td {
+    width: 33%;
 }

@@ -3,8 +3,6 @@
 {% block head %} 
 {{ super() }} 
 <script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
-<script type="text/javascript" src="/static/js/sijax/sijax.js"></script>
-<script type="text/javascript"> {{ g.sijax.get_js()|safe }} </script>
 
 <!--
 <link rel="stylesheet" href="https://unpkg.com/flatpickr/dist/flatpickr.min.css">
@@ -14,15 +12,7 @@
 <script src="{{ url_for('static', filename='vendor/flatpickr/flatpickr.min.js') }}"></script>
 
 <script type="text/javascript">
-    window.onload = function() {
-        var today = new Date()
-        var lastWeek = (new Date()).setDate(today.getDate()-7)
-        flatpickr("#dateRange", {
-            enableTime: true,
-            mode: "range",
-            defaultDate: [today , lastWeek]
-        });
-    }
+    
 </script>
 {% endblock %}
 
@@ -48,7 +38,7 @@
 
     <script type="text/javascript">
         $(function() {
-            $('#dateSelection').bind('submit', function() {
+            function get_readings() {
                 const dates = document.querySelector('#dateRange')._flatpickr.selectedDates;
                 const after = dates[0].getTime();
                 const before = dates[1].getTime();
@@ -69,44 +59,56 @@
                 })
 
                 return false;
-            })
-        });
-
-        function handle_clicks(event) {
-            var target = event.target.id;
-            var parts = target.split('_');
-            if (parts.length != 2) {
-                return
             }
 
-            var ts = parts[1];
+            function handle_clicks(event) {
+                var target = event.target.id;
+                var parts = target.split('_');
+                if (parts.length != 2) {
+                    return
+                }
 
-            if (target.startsWith('remove_')) {
-                $('#edit_' + String(ts)).disabled = true;
-                event.target.disabled = true;
-                handle_remove(ts);
-            } else if (target.startsWith('edit_')) {
-                handle_edit(ts);
+                var ts = parts[1];
+
+                if (target.startsWith('remove_')) {
+                    $('#edit_' + String(ts)).disabled = true;
+                    event.target.disabled = true;
+                    handle_remove(ts);
+                } else if (target.startsWith('edit_')) {
+                    handle_edit(ts);
+                }
             }
-        }
-        
-        function handle_remove(ts) {
-            $.ajax({
-                type: 'DELETE',
-                contentType: "application/json",
-                url: '/readings',
-                data: JSON.stringify({
-                    "ts": ts,
+            
+            function handle_remove(ts) {
+                $.ajax({
+                    type: 'DELETE',
+                    contentType: "application/json",
+                    url: '/readings',
+                    data: JSON.stringify({
+                        "ts": ts,
+                    })
                 })
-            })
 
-            $('#li_' + String(ts)).fadeOut("slow")
-        }
+                $('#li_' + String(ts)).fadeOut("slow")
+            }
 
-        function handle_edit(ts) {
-        }
+            function handle_edit(ts) {
+            }
 
-        document.getElementById('readings').addEventListener('click', handle_clicks)
+            $('#dateSelection').bind('submit', get_readings)
+            $('#readings').bind('click', handle_clicks)
+
+            window.onload = function() {
+                var today = new Date()
+                var lastWeek = (new Date()).setDate(today.getDate()-7)
+                flatpickr("#dateRange", {
+                    enableTime: true,
+                    mode: "range",
+                    defaultDate: [today , lastWeek]
+                });
+                get_readings();
+            }
+        });
     </script>
 </div>
 
