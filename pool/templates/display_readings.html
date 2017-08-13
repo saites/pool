@@ -46,7 +46,7 @@
                 var readings = $('#readings')
 
                 var getData = $.ajax({
-                    url: '/readings?after='+after+'&before='+before
+                    url: '/readings/list?after='+after+'&before='+before
                 })
 
                 readings.fadeOut("slow", () => {
@@ -83,7 +83,7 @@
                 $.ajax({
                     type: 'DELETE',
                     contentType: "application/json",
-                    url: '/readings',
+                    url: '/backend/readings',
                     data: JSON.stringify({
                         "ts": ts,
                     })

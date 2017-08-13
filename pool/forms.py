@@ -2,7 +2,7 @@ from wtforms import Form, DateTimeField, SelectField,\
     TextAreaField, StringField, IntegerField, FloatField
 
 from wtforms.validators import Optional, DataRequired, NumberRange
-from dal import EVENT_TYPES
+from pool.backend.dal import EVENT_TYPES
 
 event_d = {'': ''}
 for formal, info in EVENT_TYPES.items():

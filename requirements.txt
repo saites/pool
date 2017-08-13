@@ -1,6 +1,0 @@
-uwsgi
-Flask
-flask_sqlalchemy
-wtforms
-apscheduler
-requests

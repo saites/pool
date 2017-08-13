@@ -4,8 +4,9 @@ from sqlalchemy import desc, event
 from sqlalchemy.engine import Engine
 import time
 
-app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///pool.db'
+from pool import app
+
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///backend/pool.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
