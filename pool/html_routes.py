@@ -1,5 +1,6 @@
 from pool import app
 
+import datetime
 from flask import request, render_template, flash, redirect
 from sqlalchemy.exc import IntegrityError
 
@@ -70,8 +71,7 @@ def get_readings_list():
     return render_template('reading_list.html', readings=readings)
 
 
-@app.route('/readings/add', methods=['GET', 'POST'])
-def get_manual_reading_page():
+def _handle_individual_reading(edit_mode=False, ts=None):
     '''Page to creates new readings'''
     form = ManualReadingForm(request.form)
     if request.method == 'POST' and form.validate():
@@ -100,45 +100,47 @@ def get_manual_reading_page():
             }
             dal.add_event(r, event)
         flash('Reading added')
-        return redirect('/readings/add')
+        return redirect('/readings') if edit_mode else redirect('/readings/add')
     else:
-        return render_template('add_reading.html', form=form, ts_readonly=False)
+        if edit_mode:
+            try:
+                ts_int = int(ts)
+            except ValueError:
+                flash("Didn't understand that timestamp")
+                return redirect('/readings')
+
+            reading = dal.get_reading_at(ts_int)
+            if reading == None:
+                flash("Couldn't find a reading at {}".format(ts_int))
+                return redirect('/readings')
+
+            form.when.data = datetime.datetime.fromtimestamp(ts_int / 1000)
+            form.fc.data = reading.fc
+            form.tc.data = reading.tc
+            form.ph.data = reading.ph
+            form.ta.data = reading.ta
+            form.ca.data = reading.ca
+            form.cya.data = reading.cya
+            form.pool_temp.data = reading.pool_temp
+            if any(reading.events):
+                e = reading.events[0]
+                form.event_type.data = e.event_type
+                form.event_quantity.data = e.event_quantity
+                form.event_comment.data = e.event_comment
+
+        return render_template('add_reading.html', form=form, edit_mode=edit_mode)
+
+
+@app.route('/readings/add', methods=['GET', 'POST'])
+def get_manual_reading_page():
+    '''Page to add readings'''
+    return _handle_individual_reading()
 
 
 @app.route('/readings/edit/<ts>', methods=['GET', 'POST'])
 def edit_reading(ts):
     '''Page to edit readings'''
-    form = ManualReadingForm(request.form)
-    if request.method == 'POST' and form.validate():
-        reading = {
-            'fc': form.fc.data,
-            'tc': form.tc.data,
-            'ph': form.ph.data,
-            'ta': form.ta.data,
-            'ca': form.ca.data,
-            'cya': form.cya.data,
-            'pool_temp': form.pool_temp.data,
-            'ts': int(time.mktime(form.when.data.timetuple()) * 1000)
-        }
-        try:
-            r = dal.add_reading(reading)
-        except IntegrityError as e:
-            flash('A reading for that time already exists')
-            return redirect('/readings')
-
-        if form.event_type.data != '':
-            print(form.event_type.data)
-            event = {
-                'event_type': form.event_type.data,
-                'quantity': form.event_quantity.data if form.event_quantity.data != '' else None,
-                'comment': form.event_comment.data if form.event_comment.data != '' else None
-            }
-            dal.add_event(r, event)
-        flash('Reading added')
-        return redirect('/readings')
-    else:
-        form.fc.data = 1
-        return render_template('add_reading.html', form=form, ts_readonly=True)
+    return _handle_individual_reading(edit_mode=True, ts=ts)
 
 
 @app.route('/settings', methods=['GET', 'POST'])

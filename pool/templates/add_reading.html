@@ -17,13 +17,25 @@
 {% endblock %} 
 
 <div class="header">
-    <h1>Add Reading</h1>
+    {% if edit_mode %}
+        <h1>Edit Reading</h1>
+    {% else %}
+        <h1>Add Reading</h1>
+    {% endif %}
 </div>
 
 <div class="content">
     <form class="pure-form pure-form-aligned" method=post>
         <fieldset>
-            {{ render_field(form.when) }}
+            {% if edit_mode %}
+                <div class="pure-control-group">
+                    {{ form.when.label }}
+                    {{ form.when.data }}
+                </div>
+            {% else %}
+                {{ render_field(form.when) }}
+            {% endif %}
+
             {{ render_field(form.fc, "ppm") }}
             {{ render_field(form.tc, "ppm") }}
             {{ render_field(form.ph) }}
