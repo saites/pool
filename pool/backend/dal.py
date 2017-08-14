@@ -349,7 +349,7 @@ def update_settings(setting_map):
             value = setting_map[key]
             if value == '' or value == None:
                 continue
-            update_setting(key, value)
+            update_setting(key, value, delay_commit=True)
     except Exception as e:
         db.session.rollback()
         raise e

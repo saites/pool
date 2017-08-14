@@ -68,6 +68,19 @@
       {% block content %}{% endblock %}
     </div>
 
+    
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+        <div id="snackbar">
+          <ul>
+              {% for message in messages %}
+              <li>{{ message }}</li>
+              {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+    {% endwith %}
+
     <script src="{{ url_for('static', filename='js/ui.js') }}"></script>
   </div>
 </body>
