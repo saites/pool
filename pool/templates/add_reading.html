@@ -6,14 +6,16 @@
 {{ super() }}
 <link rel="stylesheet" href="{{ url_for('static', filename='vendor/flatpickr/flatpickr.min.css') }}">
 <script src="{{ url_for('static', filename='vendor/flatpickr/flatpickr.min.js') }}"></script>
-<script type="text/javascript">
-    window.onload = function() {
-        flatpickr("#when", {
-            enableTime: true,
-            defaultDate: new Date()
-        });
-    }
-</script>
+    {% if not edit_mode %}
+    <script type="text/javascript">
+        window.onload = function() {
+            flatpickr("#when", {
+                enableTime: true,
+                defaultDate: new Date()
+            });
+        }
+    </script>
+    {% endif %}
 {% endblock %} 
 
 <div class="header">
@@ -31,6 +33,9 @@
                 <div class="pure-control-group">
                     {{ form.when.label }}
                     {{ form.when.data }}
+                    <div style="display: none">
+                    {{ render_field(form.when) }}
+                    </div>
                 </div>
             {% else %}
                 {{ render_field(form.when) }}

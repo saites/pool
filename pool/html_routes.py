@@ -71,20 +71,17 @@ def get_readings_list():
     return render_template('reading_list.html', readings=readings)
 
 
-def _handle_individual_reading(edit_mode=False, ts=None):
-    '''Page to creates new readings'''
+reading_data = ['fc', 'tc', 'ph', 'ta', 'ca', 'cya', 'pool_temp']
+
+
+@app.route('/readings/add', methods=['GET', 'POST'])
+def get_manual_reading_page():
+    '''Page to add readings'''
     form = ManualReadingForm(request.form)
     if request.method == 'POST' and form.validate():
-        reading = {
-            'fc': form.fc.data,
-            'tc': form.tc.data,
-            'ph': form.ph.data,
-            'ta': form.ta.data,
-            'ca': form.ca.data,
-            'cya': form.cya.data,
-            'pool_temp': form.pool_temp.data,
-            'ts': int(time.mktime(form.when.data.timetuple()) * 1000)
-        }
+        reading = {elem: getattr(form, elem).data for elem in reading_data}
+        reading['ts'] = int(time.mktime(form.when.data.timetuple()) * 1000)
+
         try:
             r = dal.add_reading(reading)
         except IntegrityError as e:
@@ -100,47 +97,56 @@ def _handle_individual_reading(edit_mode=False, ts=None):
             }
             dal.add_event(r, event)
         flash('Reading added')
-        return redirect('/readings') if edit_mode else redirect('/readings/add')
+        return redirect('/readings/add')
     else:
-        if edit_mode:
-            try:
-                ts_int = int(ts)
-            except ValueError:
-                flash("Didn't understand that timestamp")
-                return redirect('/readings')
-
-            reading = dal.get_reading_at(ts_int)
-            if reading == None:
-                flash("Couldn't find a reading at {}".format(ts_int))
-                return redirect('/readings')
-
-            form.when.data = datetime.datetime.fromtimestamp(ts_int / 1000)
-            form.fc.data = reading.fc
-            form.tc.data = reading.tc
-            form.ph.data = reading.ph
-            form.ta.data = reading.ta
-            form.ca.data = reading.ca
-            form.cya.data = reading.cya
-            form.pool_temp.data = reading.pool_temp
-            if any(reading.events):
-                e = reading.events[0]
-                form.event_type.data = e.event_type
-                form.event_quantity.data = e.event_quantity
-                form.event_comment.data = e.event_comment
-
-        return render_template('add_reading.html', form=form, edit_mode=edit_mode)
+        return render_template('add_reading.html', form=form, edit_mode=False)
 
 
-@app.route('/readings/add', methods=['GET', 'POST'])
-def get_manual_reading_page():
-    '''Page to add readings'''
-    return _handle_individual_reading()
+def render_edit_reading(form, ts):
+    '''Render the edit reading template'''
+    try:
+        ts_int = int(ts)
+    except ValueError:
+        flash("Didn't understand that timestamp")
+        return redirect('/readings')
+
+    reading = dal.get_reading_at(ts_int)
+    if reading == None:
+        flash("Couldn't find a reading at {}".format(ts_int))
+        return redirect('/readings')
+
+    form.when.data = datetime.datetime.fromtimestamp(ts_int / 1000)
+    for elem in reading_data:
+        getattr(form, elem).data = getattr(reading, elem)
+    if any(reading.events):
+        e = reading.events[0]
+        form.event_type.data = e.event_type
+        form.event_quantity.data = e.event_quantity
+        form.event_comment.data = e.event_comment
+    return render_template('add_reading.html', form=form, edit_mode=True)
 
 
 @app.route('/readings/edit/<ts>', methods=['GET', 'POST'])
 def edit_reading(ts):
     '''Page to edit readings'''
-    return _handle_individual_reading(edit_mode=True, ts=ts)
+    form = ManualReadingForm(request.form)
+    if request.method == 'POST' and form.validate():
+        print('valid')
+        reading = {elem: getattr(form, elem).data for elem in reading_data}
+        reading['ts'] = int(time.mktime(form.when.data.timetuple()) * 1000)
+
+        try:
+            dal.update_reading(reading)
+        except dal.DalException as e:
+            print(e)
+            flash("Couldn't update a reading at {}".format(reading['ts']))
+            return redirect('/readings')
+
+        flash('Reading updated')
+        return redirect('/readings')
+    else:
+        print(request.method, form.validate())
+        return render_edit_reading(form, ts)
 
 
 @app.route('/settings', methods=['GET', 'POST'])

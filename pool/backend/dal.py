@@ -255,6 +255,17 @@ def add_reading(json_reading):
     return r
 
 
+def update_reading(json_reading):
+    updated = Reading(**json_reading)
+    current = get_reading_at(updated.ts)
+    if current == None:
+        raise DalException('No reading at {}'.format(updated.ts))
+    for d in Reading.definitions:
+        setattr(current, d[0], getattr(updated, d[0]))
+    db.session.add(current)
+    db.session.commit()
+
+
 def _get_readings_query(after, before):
     return Reading.query.filter(Reading.ts >= after, Reading.ts <= before)
 
