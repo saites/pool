@@ -1,0 +1,37 @@
+{% extends "layout.html" %} 
+{% block content %}
+{% from "_macros.html" import render_field, render_reading_elem %}
+
+<div class="header">
+    <h1>Add Event<h1>
+</div>
+
+<div class="content">
+    <h2 class="text-center">{{ r.ts|ms_to_str }}</h2>
+    <div>
+        <table class="pure-table pure-table-horizontal expanded text-center">
+            <tbody>
+                {{ render_reading_elem(r.fc, 'Free Cl', 'ppm', r.fc|float|round(2) )}}
+                {{ render_reading_elem(r.tc, 'Total Cl', 'ppm', r.tc|float|round(2) )}}
+                {{ render_reading_elem(r.ph, 'pH', '', r.ph|float|round(2) )}}
+                {{ render_reading_elem(r.ta, 'Total Alkilinity', 'ppm', r.ta|int )}}
+                {{ render_reading_elem(r.ca, 'Calcium Hardness', 'ppm', r.ca|int )}}
+                {{ render_reading_elem(r.cya, 'CYA', 'ppm', r.cya|int )}}
+                {{ render_reading_elem(r.pool_temp, 'Pool Temp', '*C', r.pool_temp|float|round(2) )}}
+            </tbody>
+        </table>
+    </div>
+
+    <form class="pure-form pure-form-aligned" method=post>
+        <fieldset>
+            {{ render_field(form.event_type) }}
+            {{ render_field(form.event_quantity) }}
+            {{ render_field(form.event_comment) }}
+            {{ form.csrf_token }}
+
+            <button type="submit" class="pure-button pure-button-primary" value="submit">Save</button>
+        </fieldset>
+    </form>
+</div>
+
+{% endblock %}

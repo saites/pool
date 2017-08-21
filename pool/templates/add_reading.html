@@ -1,6 +1,6 @@
 {% extends "layout.html" %} 
 {% block content %}
-{% from "_form_helpers.html" import render_field %}
+{% from "_macros.html" import render_field %}
 
 {% block head %} 
 {{ super() }}
@@ -48,12 +48,9 @@
             {{ render_field(form.ca, "ppm") }}
             {{ render_field(form.cya, "ppm") }}
             {{ render_field(form.pool_temp, "*C") }}
-            {{ render_field(form.event_type) }}
-            {{ render_field(form.event_quantity) }}
-            {{ render_field(form.event_comment) }}
             {{ form.csrf_token }}
 
-            <button type="submit" class="pure-button pure-button-primary" value="submit">Submit</button>
+            <button type="submit" class="pure-button pure-button-primary" value="submit">Save</button>
             </div>
         </fieldset>
     </form>

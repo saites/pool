@@ -7,7 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from pool.utils.flask_utils import *
 from pool.backend import dal
 from pool.utils.calcs import saturation_index
-from pool.forms import ManualReadingForm, SettingsForm
+from pool.forms import ManualReadingForm, SettingsForm, EventForm
 import pool.schedule
 
 # configure sub-routes
@@ -84,19 +84,9 @@ def get_manual_reading_page():
 
         try:
             r = dal.add_reading(reading)
+            flash('Reading added')
         except IntegrityError as e:
             flash('A reading for that time already exists')
-            return redirect('/readings/add')
-
-        if form.event_type.data != '':
-            print(form.event_type.data)
-            event = {
-                'event_type': form.event_type.data,
-                'quantity': form.event_quantity.data if form.event_quantity.data != '' else None,
-                'comment': form.event_comment.data if form.event_comment.data != '' else None
-            }
-            dal.add_event(r, event)
-        flash('Reading added')
         return redirect('/readings/add')
     else:
         return render_template('add_reading.html', form=form, edit_mode=False)
@@ -118,11 +108,6 @@ def render_edit_reading(form, ts):
     form.when.data = datetime.datetime.fromtimestamp(ts_int / 1000)
     for elem in reading_data:
         getattr(form, elem).data = getattr(reading, elem)
-    if any(reading.events):
-        e = reading.events[0]
-        form.event_type.data = e.event_type
-        form.event_quantity.data = e.event_quantity
-        form.event_comment.data = e.event_comment
     return render_template('add_reading.html', form=form, edit_mode=True)
 
 
@@ -147,6 +132,28 @@ def edit_reading(ts):
     else:
         print(request.method, form.validate())
         return render_edit_reading(form, ts)
+
+
+@app.route('/readings/add_event/<ts>', methods=['GET', 'POST'])
+def add_event(ts):
+    form = EventForm(request.form)
+    reading = dal.get_reading_at(ts)
+    if reading == None:
+        flash('No reading at {}'.format(ms_to_str(ts)))
+        return redirect('/readings')
+
+    if request.method == 'POST' and form.validate():
+        event = {
+            'event_type': form.event_type.data,
+            'quantity': form.event_quantity.data if form.event_quantity.data != '' else None,
+            'comment': form.event_comment.data if form.event_comment.data != '' else None
+        }
+
+        e = dal.add_event(reading, event)
+        flash('Event added: {}'.format(e))
+        return redirect('/readings/add_event/{}'.format(ts))
+    else:
+        return render_template('add_event.html', form=form, r=reading)
 
 
 @app.route('/settings', methods=['GET', 'POST'])

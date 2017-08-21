@@ -12,7 +12,100 @@
 <script src="{{ url_for('static', filename='vendor/flatpickr/flatpickr.min.js') }}"></script>
 
 <script type="text/javascript">
-    
+    $(function() {
+        function get_readings() {
+            const dates = document.querySelector('#dateRange')._flatpickr.selectedDates;
+            const after = dates[0].getTime();
+            const before = dates[1].getTime();
+
+            var readings = $('#readings')
+
+            var getData = $.ajax({
+                url: '/readings/list?after='+after+'&before='+before
+            })
+
+            readings.fadeOut("slow", () => {
+                getData.then((data) => {
+                    readings.html(data)
+                    readings.fadeIn()
+                }), (err) => {
+                    console.log(err)
+                }
+            })
+
+            return false;
+        }
+
+        function handle_clicks(event) {
+            var target = event.target.id;
+            var parts = target.split('_');
+            if (parts.length != 3) {
+                return
+            }
+
+            var id = parts[2];
+
+            if (target.startsWith('rm_reading_')) {
+                $('#edit_' + String(id)).disabled = true;
+                event.target.disabled = true;
+                handle_remove(id);
+            } else if (target.startsWith('edit_reading_')) {
+                handle_edit(id);
+            } else if (target.startsWith('rm_event_')) {
+                event.target.disabled = true;
+                handle_remove_event(id);
+            } else if (target.startsWith('add_event_')) {
+                handle_add_event(id);
+            }
+        }
+        
+        function handle_remove(ts) {
+            $.ajax({
+                type: 'DELETE',
+                contentType: 'application/json',
+                url: '/backend/readings',
+                data: JSON.stringify({
+                    "ts": ts
+                })
+            })
+
+            $('#li_' + String(ts)).fadeOut("slow")
+        }
+
+        function handle_edit(ts) {
+            location.href = '/readings/edit/' + ts
+        }
+
+        function handle_add_event(ts) {
+            location.href = '/readings/add_event/' + ts
+        }
+
+        function handle_remove_event(id) {
+            $.ajax({
+                type: 'DELETE',
+                contentType: 'application/json',
+                url: '/backend/events',
+                data: JSON.stringify({
+                    "event_id": id
+                })
+            })
+            $('#li_event_' + String(id)).fadeOut("slow")
+        }
+
+        $('#dateSelection').bind('submit', get_readings)
+        $('#readings').bind('click', handle_clicks)
+
+        window.onload = function() {
+            var today = new Date()
+            var lastWeek = (new Date()).setDate(today.getDate()-7)
+            flatpickr("#dateRange", {
+                enableTime: true,
+                mode: "range",
+                defaultDate: [today , lastWeek]
+            });
+            get_readings();
+        }
+    });
 </script>
 {% endblock %}
 
@@ -35,82 +128,6 @@
 
     <div id="readings">
     </div>
-
-    <script type="text/javascript">
-        $(function() {
-            function get_readings() {
-                const dates = document.querySelector('#dateRange')._flatpickr.selectedDates;
-                const after = dates[0].getTime();
-                const before = dates[1].getTime();
-
-                var readings = $('#readings')
-
-                var getData = $.ajax({
-                    url: '/readings/list?after='+after+'&before='+before
-                })
-
-                readings.fadeOut("slow", () => {
-                    getData.then((data) => {
-                        readings.html(data)
-                        readings.fadeIn()
-                    }), (err) => {
-                        console.log(err)
-                    }
-                })
-
-                return false;
-            }
-
-            function handle_clicks(event) {
-                var target = event.target.id;
-                var parts = target.split('_');
-                if (parts.length != 2) {
-                    return
-                }
-
-                var ts = parts[1];
-
-                if (target.startsWith('remove_')) {
-                    $('#edit_' + String(ts)).disabled = true;
-                    event.target.disabled = true;
-                    handle_remove(ts);
-                } else if (target.startsWith('edit_')) {
-                    handle_edit(ts);
-                }
-            }
-            
-            function handle_remove(ts) {
-                $.ajax({
-                    type: 'DELETE',
-                    contentType: "application/json",
-                    url: '/backend/readings',
-                    data: JSON.stringify({
-                        "ts": ts,
-                    })
-                })
-
-                $('#li_' + String(ts)).fadeOut("slow")
-            }
-
-            function handle_edit(ts) {
-                location.href = '/readings/edit/' + ts
-            }
-
-            $('#dateSelection').bind('submit', get_readings)
-            $('#readings').bind('click', handle_clicks)
-
-            window.onload = function() {
-                var today = new Date()
-                var lastWeek = (new Date()).setDate(today.getDate()-7)
-                flatpickr("#dateRange", {
-                    enableTime: true,
-                    mode: "range",
-                    defaultDate: [today , lastWeek]
-                });
-                get_readings();
-            }
-        });
-    </script>
 </div>
 
 {% endblock %}

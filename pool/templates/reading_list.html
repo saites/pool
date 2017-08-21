@@ -1,13 +1,15 @@
-{% from "_form_helpers.html" import render_reading_elem %}
+{% from "_macros.html" import render_reading_elem %}
 <ul class="expandable-list" id="reading-list">
     {% for r in readings %}
     <li id="li_{{ r.ts }}">
         <input type="checkbox" id="cb_{{ r.ts }}" checked="true"/>
         <label for="cb_{{ r.ts }}">{{ r.ts|ms_to_str}}</label>
         <button class="pure-button button-small right-float"
-            style="margin-left: 2px" id="remove_{{ r.ts }}">Remove</button>
+            style="margin-left: 2px" id="rm_reading_{{ r.ts }}">Remove</button>
         <button class="button pure-button button-small right-float"
-            id="edit_{{ r.ts }}">Edit</button>
+            style="margin-left: 2px" id="edit_reading_{{ r.ts }}">Edit</button>
+        <button class="button pure-button button-small right-float"
+            id="add_event_{{ r.ts }}">Add Event</button>
 
         <div>
             <table class="pure-table pure-table-horizontal expanded text-center">
@@ -21,6 +23,19 @@
                     {{ render_reading_elem(r.pool_temp, 'Pool Temp', '*C', r.pool_temp|float|round(2) )}}
                 </tbody>
             </table>
+            {% if r.events|length > 0 %}
+            <div>
+                <ul>
+                    {% for e in r.events %}
+                    <li id="li_event_{{ e.event_id }}">
+                        <button class="button pure-button button-small right-float"
+                            id="rm_event_{{ e.event_id }}">X</button>
+                        {{ e }}
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
         </div>
     </li>
     {% endfor %}

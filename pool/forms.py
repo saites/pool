@@ -28,15 +28,17 @@ class ManualReadingForm(Form):
                        [Optional(), NumberRange(min=0, max=1000)])
     pool_temp = FloatField('Pool Temp',
                            [Optional(), NumberRange(min=0, max=100)])
-    event_type = SelectField('Event',
-                             [Optional()],
-                             choices=event_choices)
-    event_quantity = FloatField(
-        'Event Quantity', [Optional(), NumberRange(min=0, max=100)])
-    event_comment = StringField('Event Comment', [Optional()])
     when = DateTimeField('When',
                          [DataRequired()],
                          format='%Y-%m-%d %H:%M')
+
+
+class EventForm(Form):
+    event_type = SelectField('Event', [DataRequired()],
+                             choices=event_choices, default=0)
+    event_quantity = FloatField(
+        'Event Quantity', [Optional(), NumberRange(min=0, max=100)])
+    event_comment = StringField('Event Comment', [Optional()])
 
 
 class SettingsForm(Form):
