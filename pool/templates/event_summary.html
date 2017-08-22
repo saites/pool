@@ -1,0 +1,32 @@
+{% from "_macros.html" import render_table_elems, render_table_headers %}
+<h2>Summary</h2>
+<table class="pure-table pure-table-horizontal expanded text-center">
+    <tbody>
+        {{ render_table_headers("Name", "Sum", "Mean", "Instances", "Units") }}
+        {% for stat in stats %}
+        {{ render_table_elems(stat.display, stat.sum_total, stat.mean, stat.num_instances, stat.unit) }}
+        {% endfor %}
+    </tbody>
+</table>
+
+{% if has_comments %}
+<h2>Comments</h2>
+<ul class="expandable-list">
+    {% for s in stats if s.comments|length > 0 %}
+    <li>
+        <input type="checkbox" checked="true" id="{{s.event_type}}"/>
+        <label for="{{s.event_type}}">{{ s.display }}</label>
+        
+        <div>
+            <ul>
+                {% for c in s.comments %}
+                <li>{{ c }}</li>
+                {% endfor %}
+            </ul>
+        <div>
+    </li>
+    {% endfor %}
+</ul>
+{% else %}
+No comments on any event in this period
+{% endif %}

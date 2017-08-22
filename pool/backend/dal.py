@@ -99,12 +99,12 @@ class Reading(db.Model):
 
 
 EVENT_TYPES = {
-    'ADD-CL': ('Add chlorine', 'gal'),
-    'ADD-ACID': ('Add acid', 'gal'),
-    'ADD-ALGAECIDE': ('Add algaecide', 'liter'),
-    'SWIM': ('Swim load', 'num people'),
-    'BACKWASH': ('Backwash filter', ''),
-    'CLEAN-FILTER': ('Clean filter', ''),
+    'ADD-CL': ('Added chlorine', 'gal'),
+    'ADD-ACID': ('Added acid', 'gal'),
+    'ADD-ALGAECIDE': ('Added algaecide', 'liter'),
+    'SWIM': ('Swim load', 'people'),
+    'BACKWASH': ('Backwashed filter', ''),
+    'CLEAN-FILTER': ('Cleaned filter', ''),
     'WEATHER': ('Weather event', ''),
 }
 

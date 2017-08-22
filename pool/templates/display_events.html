@@ -1,0 +1,72 @@
+{% extends "layout.html" %} {% block content %} 
+
+{% block head %} 
+{{ super() }} 
+<script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/flatpickr/flatpickr.min.css') }}">
+<script src="{{ url_for('static', filename='vendor/flatpickr/flatpickr.min.js') }}"></script>
+
+<script type="text/javascript">
+    $(function() {
+        function get_events() {
+            const dates = document.querySelector('#dateRange')._flatpickr.selectedDates;
+            const after = dates[0].getTime();
+            const before = dates[1].getTime();
+
+            var events = $('#events')
+
+            var getData = $.ajax({
+                url: '/events/list?after='+after+'&before='+before
+            })
+
+            events.fadeOut("slow", () => {
+                getData.then((data) => {
+                    events.html(data)
+                    events.fadeIn()
+                }), (err) => {
+                    console.log(err)
+                }
+            })
+
+            return false;
+        }
+
+        $('#dateSelection').bind('submit', get_events)
+
+        window.onload = function() {
+            var today = new Date()
+            var lastWeek = (new Date()).setDate(today.getDate()-7)
+            flatpickr("#dateRange", {
+                enableTime: true,
+                mode: "range",
+                defaultDate: [today , lastWeek]
+            });
+            get_events();
+        }
+    });
+</script>
+{% endblock %}
+
+<div class="header">
+    <h1>View Events</h1>
+</div>
+
+<div class="content">
+    <div class="pure-g text-center">
+        <div class="pure-u-1-1">
+            <form class="pure-form pure-form-aligned" method="post" id="dateSelection">
+                <fieldset>
+                    <label for="dateRange">Dates</label>
+                    <input id="dateRange" name="dateRange" type="text" class="flatpickr-input rangebox">
+                    <button class="pure-button" id="go">Go!</button>
+                </fieldset>
+            </form>
+        </div>
+    </div>
+
+    <div id="events">
+    </div>
+</div>
+
+{% endblock %}

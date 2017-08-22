@@ -21,6 +21,8 @@ app.register_blueprint(pool.backend.events.events,
 app.register_blueprint(pool.backend.settings.settings,
                        url_prefix='/backend/settings')
 
+READING_DATA = ['fc', 'tc', 'ph', 'ta', 'ca', 'cya', 'pool_temp']
+
 
 @app.route('/')
 def get_index():
@@ -71,15 +73,12 @@ def get_readings_list():
     return render_template('reading_list.html', readings=readings)
 
 
-reading_data = ['fc', 'tc', 'ph', 'ta', 'ca', 'cya', 'pool_temp']
-
-
 @app.route('/readings/add', methods=['GET', 'POST'])
 def get_manual_reading_page():
     '''Page to add readings'''
     form = ManualReadingForm(request.form)
     if request.method == 'POST' and form.validate():
-        reading = {elem: getattr(form, elem).data for elem in reading_data}
+        reading = {elem: getattr(form, elem).data for elem in READING_DATA}
         reading['ts'] = int(time.mktime(form.when.data.timetuple()) * 1000)
 
         try:
@@ -106,7 +105,7 @@ def render_edit_reading(form, ts):
         return redirect('/readings')
 
     form.when.data = datetime.datetime.fromtimestamp(ts_int / 1000)
-    for elem in reading_data:
+    for elem in READING_DATA:
         getattr(form, elem).data = getattr(reading, elem)
     return render_template('add_reading.html', form=form, edit_mode=True)
 
@@ -117,7 +116,7 @@ def edit_reading(ts):
     form = ManualReadingForm(request.form)
     if request.method == 'POST' and form.validate():
         print('valid')
-        reading = {elem: getattr(form, elem).data for elem in reading_data}
+        reading = {elem: getattr(form, elem).data for elem in READING_DATA}
         reading['ts'] = int(time.mktime(form.when.data.timetuple()) * 1000)
 
         try:
@@ -173,3 +172,52 @@ def display_settings():
     else:
         settings = dal.get_settings()
         return render_template('settings.html', form=form, settings=settings)
+
+
+@app.route('/events')
+def display_events():
+    return render_template('display_events.html')
+
+
+class SummaryStat():
+    def __init__(self, event_type, event_info):
+        self.event_type = event_type
+        self.display = event_info[0]
+        self.unit = event_info[1]
+        self.sum_total = 0
+        self.mean = 0
+        self.num_instances = 0
+        self.comments = []
+
+    def count(self, quantity, comment):
+        self.num_instances += 1
+        if quantity is not None:
+            self.sum_total += quantity
+        else:
+            self.sum_total += 1
+        self.mean = self.sum_total / self.num_instances
+        if comment is not None:
+            self.comments.append(comment)
+
+
+@app.route('/events/list')
+def get_events_lists():
+    after = extract_int('after', 0)
+    before = extract_int('before', int(1000 * time.time()))
+    events = dal.get_events(after, before)
+
+    stats = {et: SummaryStat(et, dal.EVENT_TYPES[et])
+             for et in dal.EVENT_TYPES.keys()}
+
+    has_comments = False
+    for e in events:
+        if e.comment:
+            has_comments = True
+            c = '{}: {}'.format(ms_to_str(e.reading_ts), e.comment)
+        else:
+            c = None
+        stats[e.event_type].count(e.quantity, c)
+
+    stats = [stats[et] for et in sorted(dal.EVENT_TYPES.keys())]
+
+    return render_template('event_summary.html', stats=stats, has_comments=has_comments)

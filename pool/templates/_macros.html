@@ -11,12 +11,24 @@
 </div>
 {% endmacro %}
 
+{% macro render_table_headers() %}
+<tr {{kwargs['class']}}>
+  {% for elem in varargs %}
+  <th>{{ elem }}</th>
+  {% endfor %}
+</tr>
+{% endmacro %}
+
+{% macro render_table_elems() %}
+<tr {{kwargs['class']}}>
+  {% for elem in varargs %}
+  <td>{{ elem }}</td>
+  {% endfor %}
+</tr>
+{% endmacro %}
+
 {% macro render_reading_elem(field, title, units, value) %}
 {% if field != None %}
-<tr class="three-col">
-  <td>{{ title }}</td>
-  <td>{{ value }}</td>
-  <td>{{ units }}</td>
-</tr>
+  {{render_table_elems(title, units, value, class="three-col")}}
 {% endif %}
 {% endmacro %}

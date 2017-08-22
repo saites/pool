@@ -1,0 +1,16 @@
+{% from "_macros.html" import render_table_elems %}
+<ul class="expandable-list">
+    {% for e in events %}
+    <li>
+        <input type="checkbox" checked="true" id="event_{{e.event_id}}"/>
+        <label for="event_{{e.event_id}}">{{ e.reading_ts|ms_to_str}}</label>
+
+        <button class="button pure-button button-small right-float"
+            style="margin-left: 2px" id="edit_event_{{ e.event_id }}">Edit</button>
+        <button class="pure-button button-small right-float"
+            id="view_reading_{{ e.reading_ts }}">See Reading</button>
+
+        <div>{{ e }}</div>
+    </li>
+    {% endfor %}
+</ul>

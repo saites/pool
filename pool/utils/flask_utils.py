@@ -52,3 +52,9 @@ def ms_to_str(ms):
         return time.strftime('%a, %d %b %Y at %H:%M:%S', time.localtime(ms / 1000))
     except:
         return ms
+
+
+class SelectOption():
+    def __init__(self, value, display):
+        self.value = value
+        self.display = display

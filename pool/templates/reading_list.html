@@ -1,4 +1,7 @@
 {% from "_macros.html" import render_reading_elem %}
+{% if readings|length == 0 %}
+No readings during the selected period
+{% else %}
 <ul class="expandable-list" id="reading-list">
     {% for r in readings %}
     <li id="li_{{ r.ts }}">
@@ -40,3 +43,4 @@
     </li>
     {% endfor %}
 </ul>
+{% endif %}
