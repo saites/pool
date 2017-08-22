@@ -49,13 +49,9 @@
                 $('#edit_' + String(id)).disabled = true;
                 event.target.disabled = true;
                 handle_remove(id);
-            } else if (target.startsWith('edit_reading_')) {
-                handle_edit(id);
             } else if (target.startsWith('rm_event_')) {
                 event.target.disabled = true;
                 handle_remove_event(id);
-            } else if (target.startsWith('add_event_')) {
-                handle_add_event(id);
             }
         }
         
@@ -70,14 +66,6 @@
             })
 
             $('#li_' + String(ts)).fadeOut("slow")
-        }
-
-        function handle_edit(ts) {
-            location.href = '/readings/edit/' + ts
-        }
-
-        function handle_add_event(ts) {
-            location.href = '/readings/add_event/' + ts
         }
 
         function handle_remove_event(id) {

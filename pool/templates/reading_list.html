@@ -9,10 +9,10 @@ No readings during the selected period
         <label for="cb_{{ r.ts }}">{{ r.ts|ms_to_str}}</label>
         <button class="pure-button button-small right-float"
             style="margin-left: 2px" id="rm_reading_{{ r.ts }}">Remove</button>
-        <button class="button pure-button button-small right-float"
+        <a href="/readings/edit/{{r.ts}}" class="button pure-button button-small right-float"
             style="margin-left: 2px" id="edit_reading_{{ r.ts }}">Edit</button>
-        <button class="button pure-button button-small right-float"
-            id="add_event_{{ r.ts }}">Add Event</button>
+        <a href="/readings/add_event/{{r.ts}}" class="button pure-button button-small right-float"
+            id="add_event_{{ r.ts }}">Add Event</a>
 
         <div>
             <table class="pure-table pure-table-horizontal expanded text-center">
